@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model CDC_CURSOR {
+  table_name String    @id(map: "PK__CDC_CURS__B228A5BE7F853CA8") @db.NVarChar(128)
+  last_lsn   BigInt?
+  updated_at DateTime? @default(now(), map: "DF__CDC_CURSO__updat__762C88DA") @db.DateTime
+}
+
+model TB_H_ANDON_LOG {
+  FID                Int       @id(map: "PK__TB_H_AND__C1BEA5A2B805EA7F") @default(autoincrement())
+  LOG_DATE           DateTime  @db.Date
+  LINE_NAME          String?   @db.VarChar(50)
+  SHIFT_NAME         String?   @db.VarChar(20)
+  GROUP_NAME         String?   @db.VarChar(20)
+  TARGET             Int?
+  PLAN               Int?
+  ACTUAL             Int?
+  EFF                Decimal?  @db.Decimal(5, 2)
+  TAKT_TIME          Int?
+  FDATETIME_MODIFIED DateTime? @default(now(), map: "DF__TB_H_ANDO__FDATE__69C6B1F5") @db.DateTime
+}
+
+model TB_H_ANDON_STATUS {
+  FID                Int       @id(map: "PK__TB_H_DOW__C1BEA5A23D2631D9") @default(autoincrement())
+  STATION            String    @db.VarChar(50)
+  PROD_DATE          DateTime  @db.Date
+  PROD_SHIFT         String    @db.VarChar(50)
+  START_TIME         DateTime  @db.DateTime
+  END_TIME           DateTime? @db.DateTime
+  DURATION_SECOND    Int?
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_H_DOWNTIME_LOG {
+  FID                Int       @id(map: "PK__TB_R_DOW__C1BEA5A23D2631D9") @default(autoincrement())
+  STATION            String    @db.VarChar(50)
+  PROD_DATE          DateTime  @db.Date
+  PROD_SHIFT         String    @db.VarChar(50)
+  DURATION_SECOND    Int?
+  DURATION_MINUTE    Int?
+  TOTAL_DOWNTIME     Int       @default(0, map: "DF_TB_R_DOWNTIME_LOG_TOTAL_DOWNTIME")
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_H_PRINT_LOG {
+  FID               Int       @id(map: "PK__TB_H_PRI__C1BEA5A233F85546") @default(autoincrement())
+  PRINT_QRCODE      String?   @db.VarChar(50)
+  FID_RECEIVER      String?   @db.VarChar(50)
+  FALC_DATA         String?   @db.VarChar(300)
+  DATETIME_RECEIVED DateTime? @db.DateTime
+  PROD_DATE         DateTime? @db.Date
+  FSHIFT            String?   @db.VarChar(1)
+  DATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_M_BATTERY_MAPPING {
+  FKATASHIKI         String  @db.VarChar(15) @id
+  FTYPE_BATTERY      String  @db.VarChar(1)
+  FMODEL_BATTERY     String  @db.VarChar(20)
+  FPACK_PART_BATTERY String? @db.VarChar(5)
+}
+
+model TB_M_INIT_QRCODE {
+  FID                    Int     @id(map: "PK_TB_M_INIT_QRCODE") @default(autoincrement())
+  NO_BATTERYPACK         String? @db.VarChar(50)
+  BATTERY_PACK_NAME      String? @db.VarChar(50)
+  BATTERY_IDENTIFICATION String? @db.VarChar(10)
+  EMC_ID                 String? @db.VarChar(50)
+  BATTERYPACK_ID         String? @db.VarChar(50)
+  ENERGY_BATTERY         String? @db.VarChar(10)
+  BATTERY_CATEGORY       String? @db.VarChar(10)
+  NO_EPR                 String? @db.VarChar(10)
+  URL                    String? @db.VarChar(50)
+  FTYPE_BATTERY          String? @db.VarChar(10)
+  FMODEL_BATTERY         String? @db.VarChar(20)
+}
+
+model TB_M_LABEL_CONSTANT {
+  FKEY   String @id(map: "PK__TB_M_LAB__A198C993F714F866") @db.VarChar(50)
+  FVALUE String @db.VarChar(50)
+}
+
+model TB_R_ANDON_GLOBAL {
+  FID     Int       @id(map: "PK__TB_R_AND__C1BEA5A21F30975C") @default(autoincrement())
+  FNAME   String?   @db.VarChar(50)
+  FVALUE  Int?
+  FUPDATE DateTime? @db.DateTime
+}
+
+model TB_R_ANDON_STATUS {
+  FID                Int       @id(map: "PK__TB_R_AND__C1BEA5A255335920") @default(autoincrement())
+  STATION            String    @db.VarChar(50)
+  CALL_TYPE          String    @db.VarChar(20)
+  FVALUE             Int?      @default(0, map: "DF__TB_R_ANDO__FVALU__7908F585") @db.TinyInt
+  FDATETIME_MODIFIED DateTime? @default(now(), map: "DF__TB_R_ANDO__FDATE__79FD19BE") @db.DateTime
+}
+
+model TB_R_DOWNTIME_LOG {
+  FID                Int       @id(map: "PK__TB_R_DOWN__C1BEA5A23D2631D9") @default(autoincrement())
+  STATION            String    @db.VarChar(50)
+  DURATION_SECOND    Int?
+  DURATION_MINUTE    Int?
+  TOTAL_DOWNTIME     Int
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_R_POS_STATUS {
+  FID                Int       @id(map: "PK__TB_R_POS__C1BEA5A2D0966795") @default(autoincrement())
+  STATION            String?   @db.VarChar(50)
+  STATUS             String?   @db.VarChar(50)
+  FVALUE             Int?      @default(0, map: "DF_TB_R_POS_STATUS_FVALUE")
+  SOURCE             String?   @db.VarChar(50)
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_R_PRINT_LABEL {
+  FPRINT_QRCODE      String    @id(map: "PK_TB_R_PRINT_LABEL") @db.VarChar(50)
+  FMODEL_BATTERY     String?   @db.VarChar(20)
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_R_RECEIVER_SUBSYSTEM {
+  ID_RECEIVER   String    @id(map: "PK__TB_R_REC__A92E6503CCC63D64") @db.VarChar(50)
+  BC_STS        String?   @db.Char(2)
+  PR_STS        String?   @db.Char(2)
+  SENT_TO       String?   @db.VarChar(50)
+  RECEIVED_FROM String?   @db.VarChar(50)
+  ALC_DATA      String?   @db.VarChar(255)
+  READ_FLG      String?   @default("0", map: "DF__TB_RECEIV__READ___318258D2") @db.VarChar(1)
+  PROC_BY       String?   @db.VarChar(20)
+  PROC_DT       DateTime? @db.DateTime
+  PROC_ID       String?   @db.VarChar(20)
+  CREATED_BY    String    @db.VarChar(20)
+  CREATED_DT    DateTime  @default(now(), map: "DF__TB_RECEIV__CREAT__32767D0B") @db.DateTime
+  CHANGED_BY    String?   @db.VarChar(20)
+  CHANGED_DT    DateTime? @db.DateTime
+}
+
+model TB_R_RFID_COMMAND {
+  FID                Int      @id(map: "PK__TB_R_RFI__C1BEA5A2F3442881") @default(autoincrement())
+  STATION_NAME       String   @db.NVarChar(100)
+  STATION_ID         String?  @db.NVarChar(100)
+  COMMAND            String   @db.NVarChar(20)
+  FVALUE             Int      @default(0, map: "DF__TB_R_RFID__FVALU__269AB60B")
+  FDATETIME_MODIFIED DateTime @default(now(), map: "DF__TB_R_RFID__FDATE__278EDA44") @db.DateTime
+
+  @@index([COMMAND], map: "IX_TB_R_RFID_COMMAND_COMMAND")
+  @@index([FVALUE], map: "IX_TB_R_RFID_COMMAND_FVALUE")
+  @@index([FVALUE, COMMAND], map: "IX_TB_R_RFID_COMMAND_FVALUE_COMMAND")
+  @@index([FDATETIME_MODIFIED], map: "IX_TB_R_RFID_COMMAND_MODIFIED")
+  @@index([STATION_ID], map: "IX_TB_R_RFID_COMMAND_STATION_ID")
+  @@index([STATION_NAME], map: "IX_TB_R_RFID_COMMAND_STATION_NAME")
+}
+
+model TB_R_SEQUENCE_BATTERY {
+  FID                         Int                    @id(map: "PK__TB_R_SEQ__C1BEA5A25E590614") @default(autoincrement())
+  FID_ADJUST                  Int?
+  FSEQ_NO                     Int
+  FTYPE_BATTERY               String                 @db.VarChar(1)
+  FMODEL_BATTERY              String                 @db.VarChar(20)
+  FSEQ_DATE                   DateTime               @db.Date
+  FSTATUS                     Int?
+  FBARCODE                    String?                @db.VarChar(100)
+  FSEQ_K0                     String?                @db.VarChar(100)
+  FBODY_NO_K0                 String?                @db.VarChar(100)
+  FID_RECEIVER                String?                @db.VarChar(50)
+  FALC_DATA                   String?                @db.VarChar(200)
+  FTIME_RECEIVED              DateTime?              @db.DateTime
+  FTIME_PRINTED               DateTime?              @db.DateTime
+  FTIME_COMPLETED             DateTime?              @db.DateTime
+  TB_R_SEQUENCE_BATTERY       TB_R_SEQUENCE_BATTERY  @relation("TB_R_SEQUENCE_BATTERYToTB_R_SEQUENCE_BATTERY", fields: [FID], references: [FID], onUpdate: NoAction, map: "FK_TB_R_SEQUENCE_BATTERY_TB_R_SEQUENCE_BATTERY")
+  other_TB_R_SEQUENCE_BATTERY TB_R_SEQUENCE_BATTERY? @relation("TB_R_SEQUENCE_BATTERYToTB_R_SEQUENCE_BATTERY")
+}
+
+model TB_R_TARGET_PROD {
+  FID                Int       @id(map: "PK__tb_targe__D9908D6455315C69") @default(autoincrement())
+  FTYPE_BATTERY      String?   @db.VarChar(20)
+  FMODEL_BATTERY     String?   @db.VarChar(30)
+  FPACK_PART_BATTERY String?   @db.VarChar(5)
+  FTARGET            Int?      @default(0, map: "DF_TB_R_TARGET_PROD_ftarget")
+  FSEQ_K0            String?   @db.VarChar(3)
+  FBODY_NO_K0        String?   @db.VarChar(5)
+  FID_RECEIVER       String?   @db.VarChar(50)
+  FALC_DATA          String?   @db.VarChar(200)
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_R_TRACEABILITY_MAN_BRACKET_ASSY {
+  FID                Int       @id(map: "PK_TB_R_TRACEABILITY_MAN_BRACKET_ASSY_1") @default(autoincrement())
+  LINE               String?   @db.VarChar(20)
+  BARCODE            String?   @db.VarChar(20)
+  V_TORQUE           Decimal?  @db.Decimal(5, 1)
+  V_ANGLE            Decimal?  @db.Decimal(5, 1)
+  JUDGEMENT          String?   @db.VarChar(10)
+  FPROD_DATE         DateTime? @db.Date
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_M_PROD_MONTH_DAY {
+  FID        Int     @id(map: "PK_TB_M_PROD_MONTH_DAY") @default(autoincrement())
+  FMONTH_DAY String? @db.VarChar(50)
+  FCODE      String? @db.VarChar(50)
+}
+
+model TB_M_PROD_YEAR {
+  FID        Int     @id(map: "PK_TB_M_PROD_YEAR") @default(autoincrement())
+  FCODE_YEAR String? @db.VarChar(2)
+  FYEAR      String? @db.VarChar(5)
+}

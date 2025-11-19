@@ -1,0 +1,14 @@
+services:
+  backend:
+    image: my-be:latest
+    container_name: hv-battery-p1-backend
+    ports:
+      - "4001:4001"
+    env_file:
+      - .env.production
+    networks:
+      - hv-network
+
+networks:
+  hv-network:
+    driver: bridge

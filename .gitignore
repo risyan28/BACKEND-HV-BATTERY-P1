@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Prisma
+prisma/dev.db
+prisma/migrations/*.sqlite
+prisma/seed.ts
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Temp files
+tmp/
+temp/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor config
+.vscode/
+.idea/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Local env files
+.env*
+
+# Build artifacts
+*.zip
+*.tar.gz
+*.tgz
