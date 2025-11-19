@@ -5,6 +5,9 @@ node_modules/
 dist/
 build/
 
+#Runtime
+backend-runtime/
+
 # Prisma
 prisma/dev.db
 prisma/migrations/*.sqlite
