@@ -23,9 +23,7 @@
     "docker:prune": "docker image prune -f --filter dangling=true",
     "deploy:docker": "npm run build && npm run docker:build && npm run docker:prune && npm run docker:save && docker-compose up -d",
     "bundle:be": "node build-backend-bundle.js",
-    "push": "git push origin main",
     "git:solo": "git add . && git diff --cached --quiet || git commit -m \"Update project\" && git pull origin main --no-rebase && git push origin main",
-    "git:save": "git add . && git diff --cached --quiet || git commit -m \"save\" && git push origin main",
     "git:team": "git add . && git diff --cached --quiet || git commit -m \"Update project\" && git pull origin main --no-rebase && git push origin $(git branch --show-current)",
     "git:new": "git checkout -b"
   },
