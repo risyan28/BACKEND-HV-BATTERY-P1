@@ -2,7 +2,7 @@
 import 'module-alias/register';
 import dotenv from 'dotenv'
 import { createServer } from 'http'
-import app from '@/app'
+import { app } from './app'
 import { setupWebSocket } from './ws/setup'
 import { logStartupInfo } from './utils/startupLogger'
 import { getConnection } from './utils/db'
