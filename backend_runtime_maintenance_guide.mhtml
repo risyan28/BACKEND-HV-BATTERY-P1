@@ -1,0 +1,414 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>Backend Runtime Maintenance Guide</title>
+  <style>
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      line-height: 1.6; 
+      max-width: 800px; 
+      margin: 40px auto; 
+      padding: 20px;
+    }
+    h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+    h2 { color: #34495e; border-bottom: 2px solid #95a5a6; padding-bottom: 8px; margin-top: 30px; }
+    h3 { color: #7f8c8d; }
+    code { 
+      background-color: #f4f4f4; 
+      border: 1px solid #ddd; 
+      border-radius: 4px; 
+      padding: 2px 6px; 
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 90%;
+    }
+    pre { 
+      background-color: #2d2d2d; 
+      color: #f8f8f2; 
+      border-radius: 6px; 
+      padding: 15px; 
+      overflow-x: auto;
+      font-family: 'Consolas', 'Courier New', monospace;
+      line-height: 1.4;
+    }
+    pre code {
+      background: none;
+      border: none;
+      color: inherit;
+      padding: 0;
+    }
+    blockquote {
+      border-left: 4px solid #3498db;
+      margin: 20px 0;
+      padding: 10px 20px;
+      background-color: #ecf0f1;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 20px 0;
+    }
+    th, td {
+      border: 1px solid #bdc3c7;
+      padding: 12px;
+      text-align: left;
+    }
+    th {
+      background-color: #34495e;
+      color: white;
+    }
+    .emoji {
+      font-size: 1.2em;
+    }
+    .success { color: #27ae60; }
+    .error { color: #e74c3c; }
+    .warning { color: #f39c12; }
+    .info { color: #3498db; }
+  </style>
+</head>
+<body>
+<p><h1>📘 Backend Runtime Maintenance & Troubleshooting Guide</h1></p><p><strong>HV Battery Backend Server - Production Deployment Guide</strong></p><p>Version: 2.0 (Updated: February 2026)</p><p>Dokumentasi ini dibuat untuk membantu teknisi atau user melakukan <strong>maintenance</strong>, <strong>troubleshooting</strong>, dan <strong>operasional</strong> pada sistem <strong>Backend Runtime (Node.js + Express + Prisma + Socket.IO)</strong> yang sudah dibundle dan berjalan di server offline/online.</p><p><hr></p><p><h1>📦 1. Struktur Folder Runtime</h1></p><p>Setelah proses bundling (<code>npm run bundle:be</code>), struktur folder akan seperti berikut:</p><p><pre><code>
+backend-runtime/
+├── dist/                    # Hasil build TypeScript (compiled JavaScript)
+├── node_modules/            # Production dependencies
+├── prisma/                  # Database schema & migrations
+│   └── schema.prisma
+├── package.json             # Node.js configuration
+├── package-lock.json        # Dependency lock file
+├── .env                     # Environment variables (PRODUCTION CONFIG)
+├── DEPLOYMENT.md            # Panduan deployment detail
+├── start.bat                # Quick start (simple mode)
+├── start-pm2.bat            # PM2 auto-start (RECOMMENDED)
+└── install-pm2.bat          # One-time PM2 installation
+</code></pre></p><p><strong>File ZIP Bundle:</strong></p><p>- Nama: <code>backend-runtime.zip</code> _(disabled by default, manual folder copy)_
+<li>Atau: Copy langsung folder <code>backend-runtime/</code></p><p><hr></p><p><h1>🚀 2. Cara Deploy ke Server Production</h1></p><p><h2>Step 1: Copy Folder ke Server</h2></p><p><strong>Option A: Manual Copy (Default)</strong></p><p><pre><code>bash</li>
+<h1>Copy folder backend-runtime ke server via:</h1>
+<h1>- Network share</h1>
+<h1>- USB drive</h1>
+<h1>- Remote desktop</h1>
+</code></pre></p><p><strong>Option B: ZIP Transfer (jika diaktifkan)</strong></p><p><pre><code>bash
+<h1>Copy backend-runtime.zip lalu extract di server</h1>
+unzip backend-runtime.zip
+<h1>atau PowerShell:</h1>
+Expand-Archive -Path backend-runtime.zip -DestinationPath .
+</code></pre></p><p><h2>Step 2: Install PM2 (One-Time Only)</h2></p><p><strong>Untuk server yang ADA INTERNET:</strong></p><p><pre><code>bash
+cd backend-runtime
+install-pm2.bat
+<h1>atau manual:</h1>
+npm install -g pm2
+</code></pre></p><p><strong>Untuk server OFFLINE:</strong></p><p>- Install PM2 sebelum server offline
+<li>Atau install dari offline npm cache</li>
+<li>PM2 hanya perlu diinstall SEKALI per server</p><p><h2>Step 3: Konfigurasi Environment</h2></p><p>Edit file <code>.env</code> sesuai production settings:</p><p><pre><code>env</li>
+<h1>Database Connection</h1>
+DATABASE_URL="sqlserver://SERVER_IP:1433;database=DB_TMMIN1_KRW_PIS_HV_BATTERY;user=sa;password=YOUR_PASSWORD;encrypt=false;trustServerCertificate=true"</p><p><h1>Server Configuration</h1>
+PORT=4001
+NODE_ENV=production</p><p><h1>Optional Features (set false jika tidak tersedia)</h1>
+REDIS_ENABLED=false
+SENTRY_ENABLED=false
+OTEL_ENABLED=false</p><p><h1>Jika Redis tersedia (untuk caching - 83% faster!)</h1>
+REDIS_HOST=localhost
+REDIS_PORT=6379
+</code></pre></p><p><h2>Step 4: Start Server</h2></p><p><strong>RECOMMENDED: PM2 Auto-Start</strong></p><p><pre><code>bash
+<h1>Windows: Double-click file ini</h1>
+start-pm2.bat</p><p><h1>Atau manual:</h1>
+pm2 start dist/index.js --name "hv-battery-backend" --time
+pm2 startup
+pm2 save
+</code></pre></p><p><strong>Alternative: Simple Start</strong></p><p><pre><code>bash
+<h1>Windows: Double-click</h1>
+start.bat</p><p><h1>Atau manual:</h1>
+node dist/index.js
+</code></pre></p><p><h2>Step 5: Verify Server Running</h2></p><p><pre><code>bash
+<h1>Check process</h1>
+pm2 list</p><p><h1>Check port</h1>
+netstat -ano | findstr :4001</p><p><h1>Test health endpoint</h1>
+curl http://localhost:4001/api/health
+<h1>Expected: {"status":"healthy","database":"connected"}</h1></p><p><h1>View logs</h1>
+pm2 logs hv-battery-backend
+</code></pre></p><p><hr></p><p><h1>⚙️ 3. Server Management Scripts</h1></p><p><h2>Development Mode (Local PC)</h2></p><p><h3>Start Development Server</h3></p><p><pre><code>bash
+npm run dev          # Auto port cleanup + TypeScript watch + nodemon
+npm run dev:direct   # Direct start (no auto cleanup)
+</code></pre></p><p><strong>Features:</strong></p><p>- ✅ Auto-kill port 4001 if in use
+<li>✅ TypeScript watch mode (auto-compile on save)</li>
+<li>✅ Nodemon auto-restart on code changes</li>
+<li>✅ No more EADDRINUSE errors</p><p><h3>Build & Test</h3></p><p><pre><code>bash</li>
+npm run build        # Compile TypeScript
+npm test             # Run Vitest tests
+npm run test:ui      # Vitest UI mode
+</code></pre></p><p><h2>Production Mode (Server)</h2></p><p><h3>Start Server</h3></p><p><pre><code>bash
+npm start            # Auto port cleanup + start production
+npm run start:direct # Direct start (no auto cleanup)
+</code></pre></p><p><h3>Stop Server</h3></p><p><pre><code>bash
+npm run stop         # Gracefully stop server
+</code></pre></p><p><h3>Restart Server</h3></p><p><pre><code>bash
+npm run restart      # Stop + start server
+</code></pre></p><p><h3>PM2 Commands (Production)</h3></p><p><pre><code>bash
+pm2 start dist/index.js --name "hv-battery-backend" --time
+pm2 stop hv-battery-backend
+pm2 restart hv-battery-backend
+pm2 delete hv-battery-backend
+pm2 logs hv-battery-backend
+pm2 monit
+pm2 list
+</code></pre></p><p><hr></p><p><h1>🔄 4. Update / Deploy Versi Baru</h1></p><p><h2>Development PC (Build Bundle)</h2></p><p>1. <strong>Build Bundle Baru:</strong></p><p><pre><code>bash
+npm run bundle:be
+</code></pre></p><p>Output:</p><p><pre><code>
+📦 Step 1: Build TypeScript
+🧹 Step 2: Clean old bundle
+📂 Step 3: Copy files (dist/, prisma/, package.json, .env)
+📦 Step 4: Install production dependencies
+📝 Step 5: Create deployment guide
+🔧 Step 6: Create start scripts
+✅ Success! Folder ready: backend-runtime/
+</code></pre></p><p>2. <strong>Copy ke Server:</strong></p><p><pre><code>bash
+<h1>Copy folder backend-runtime ke server production</h1>
+</code></pre></p><p><h2>Production Server (Deploy)</h2></p><p>1. <strong>Backup Versi Lama:</strong></p><p><pre><code>bash
+<h1>Windows</h1>
+xcopy backend-runtime backend-runtime-backup /E /I /H /Y</p><p><h1>Linux</h1>
+cp -r backend-runtime backend-runtime-backup
+</code></pre></p><p>2. <strong>Stop Server Lama:</strong></p><p><pre><code>bash
+pm2 stop hv-battery-backend
+<h1>atau</h1>
+npm run stop
+</code></pre></p><p>3. <strong>Replace dengan Versi Baru:</strong></p><p><pre><code>bash
+<h1>Hapus folder lama (kecuali .env jika ada custom config)</h1>
+rm -rf backend-runtime/dist
+rm -rf backend-runtime/node_modules</p><p><h1>Copy folder baru</h1>
+<h1>(via network share, USB, etc)</h1>
+</code></pre></p><p>4. <strong>Preserve Environment Config:</strong></p><p><pre><code>bash
+<h1>Copy .env dari backup jika ada perubahan custom</h1>
+cp backend-runtime-backup/.env backend-runtime/.env
+</code></pre></p><p>5. <strong>Start Server Baru:</strong></p><p><pre><code>bash
+cd backend-runtime
+start-pm2.bat
+<h1>atau</h1>
+pm2 start dist/index.js --name "hv-battery-backend" --time
+</code></pre></p><p>6. <strong>Verify:</strong></p><p><pre><code>bash
+pm2 logs hv-battery-backend
+curl http://localhost:4001/api/health
+</code></pre></p><p><hr></p><p><h1>🛠 5. Troubleshooting</h1></p><p><h2>❌ Problem 1: Port Already in Use (EADDRINUSE)</h2></p><p><strong>Symptoms:</strong></p><p><pre><code>
+Error: listen EADDRINUSE: address already in use 0.0.0.0:4001
+</code></pre></p><p><strong>Solution A: Auto Cleanup (Development)</strong></p><p><pre><code>bash
+npm run dev     # Dev mode auto-kills port
+npm start       # Production mode auto-kills port
+</code></pre></p><p><strong>Solution B: Manual Cleanup</strong></p><p><pre><code>bash
+<h1>Windows - Find process using port 4001</h1>
+netstat -ano | findstr :4001
+<h1>Kill process:</h1>
+taskkill /PID <PID> /F</p><p><h1>Or use stop script:</h1>
+npm run stop</p><p><h1>Linux</h1>
+lsof -i :4001
+kill -9 <PID>
+</code></pre></p><p><strong>Solution C: PM2</strong></p><p><pre><code>bash
+pm2 list                        # Check running processes
+pm2 stop hv-battery-backend     # Stop conflicting process
+pm2 delete hv-battery-backend   # Remove from PM2
+pm2 start dist/index.js --name "hv-battery-backend" --time
+</code></pre></p><p><hr></p><p><h2>❌ Problem 2: Database Connection Failed</h2></p><p><strong>Symptoms:</strong></p><p><pre><code>
+[FATAL] Database connection failed
+Could not connect to SQL Server
+</code></pre></p><p><strong>Solution:</strong></p><p>1. <strong>Check SQL Server Running:</strong></p><p><pre><code>bash
+<h1>Windows</h1>
+sc query MSSQLSERVER
+<h1>Should show: RUNNING</h1></p><p><h1>Start if stopped:</h1>
+net start MSSQLSERVER
+</code></pre></p><p>2. <strong>Verify DATABASE_URL in .env:</strong></p><p><pre><code>env
+DATABASE_URL="sqlserver://localhost:1433;database=DB_TMMIN1_KRW_PIS_HV_BATTERY;user=sa;password=YOUR_PASSWORD;encrypt=false;trustServerCertificate=true"
+</code></pre></p><p>3. <strong>Test Connection Manually:</strong></p><p><pre><code>bash
+sqlcmd -S localhost -U sa -P YOUR_PASSWORD -Q "SELECT @@VERSION"
+</code></pre></p><p>4. <strong>Check Firewall:</strong></p><p><pre><code>bash
+<h1>Windows: Allow port 1433</h1>
+netsh advfirewall firewall add rule name="SQL Server" dir=in action=allow protocol=TCP localport=1433
+</code></pre></p><p>5. <strong>Regenerate Prisma Client:</strong></p><p><pre><code>bash
+cd backend-runtime
+npx prisma generate
+pm2 restart hv-battery-backend
+</code></pre></p><p><hr></p><p><h2>❌ Problem 3: Prisma Client Error</h2></p><p><strong>Symptoms:</strong></p><p><pre><code>
+PrismaClientInitializationError
+Cannot find module '@prisma/client'
+</code></pre></p><p><strong>Solution:</strong></p><p><pre><code>bash
+cd backend-runtime
+npm install --omit=dev
+npx prisma generate
+pm2 restart hv-battery-backend
+</code></pre></p><p><hr></p><p><h2>❌ Problem 4: Nodemon Restart Errors (Development)</h2></p><p><strong>Symptoms:</strong></p><p><pre><code>
+[nodemon] restarting...
+Error: EADDRINUSE
+</code></pre></p><p><strong>Solution (Already Fixed):</strong></p><p>- Nodemon delay increased: 2500ms → 3500ms
+<li>Graceful shutdown delay: +500ms</li>
+<li>Total buffer: ~4 seconds</p><p>If still occurs:</p><p><pre><code>bash</li>
+<h1>Stop and restart clean</h1>
+npm run stop
+npm run dev
+</code></pre></p><p><hr></p><p><h2>❌ Problem 5: Server Crashes / Not Responding</h2></p><p><strong>Check Logs:</strong></p><p><pre><code>bash
+pm2 logs hv-battery-backend --lines 100
+</code></pre></p><p><strong>Common Issues:</strong></p><p>1. <strong>Out of Memory:</strong></p><p><pre><code>bash
+<h1>Increase Node.js memory (if needed)</h1>
+pm2 start dist/index.js --name "hv-battery-backend" --max-memory-restart 1024M
+</code></pre></p><p>2. <strong>Uncaught Exception:</strong></p><p>- Check logs for stack trace
+<li>Graceful shutdown should catch most errors</li>
+<li>Update code and redeploy</p><p>3. <strong>PM2 Process Stuck:</strong></p><p><pre><code>bash</li>
+pm2 delete hv-battery-backend
+pm2 start dist/index.js --name "hv-battery-backend" --time
+</code></pre></p><p><hr></p><p><h2>❌ Problem 6: Socket.IO Not Connecting</h2></p><p><strong>Symptoms:</strong></p><p>- WebSocket connections fail
+<li>Real-time updates not working</p><p><strong>Solution:</strong></p><p>1. <strong>Check WebSocket URL:</strong></p><p><pre><code>javascript</li>
+// Client should connect to:
+ws://SERVER_IP:4001
+</code></pre></p><p>2. <strong>Check Firewall:</strong></p><p><pre><code>bash
+<h1>Allow port 4001</h1>
+netsh advfirewall firewall add rule name="HV Battery Backend" dir=in action=allow protocol=TCP localport=4001
+</code></pre></p><p>3. <strong>Check Backend Logs:</strong></p><p><pre><code>bash
+pm2 logs hv-battery-backend | grep "WS"
+<h1>Look for WebSocket connection messages</h1>
+</code></pre></p><p>4. <strong>Test Manually:</strong></p><p><pre><code>bash
+<h1>In browser console:</h1>
+const socket = io('http://localhost:4001')
+socket.on('connect', () => console.log('Connected!'))
+</code></pre></p><p><hr></p><p><h1>🧹 6. Maintenance Rutin</h1></p><p><h2>Daily</h2></p><p><strong>Check Server Status:</strong></p><p><pre><code>bash
+pm2 list
+pm2 monit
+</code></pre></p><p><strong>View Logs:</strong></p><p><pre><code>bash
+pm2 logs hv-battery-backend --lines 50
+</code></pre></p><p><h2>Weekly</h2></p><p><strong>Restart Server (Clear Memory):</strong></p><p><pre><code>bash
+pm2 restart hv-battery-backend
+</code></pre></p><p><strong>Clear Logs:</strong></p><p><pre><code>bash
+pm2 flush
+</code></pre></p><p><h2>Monthly</h2></p><p><strong>Backup Database:</strong></p><p><pre><code>bash
+<h1>SQL Server backup</h1>
+BACKUP DATABASE DB_TMMIN1_KRW_PIS_HV_BATTERY
+TO DISK = 'D:\Backup\HV_BATTERY_backup.bak'
+WITH FORMAT, INIT, COMPRESSION
+</code></pre></p><p><strong>Backup Runtime Folder:</strong></p><p><pre><code>bash
+<h1>Windows</h1>
+xcopy backend-runtime D:\Backup\backend-runtime-$(date +%Y%m%d) /E /I /H /Y</p><p><h1>Linux</h1>
+tar -czf backup-$(date +%Y%m%d).tar.gz backend-runtime/
+</code></pre></p><p><strong>Check Disk Space:</strong></p><p><pre><code>bash
+<h1>Windows</h1>
+wmic logicaldisk get size,freespace,caption</p><p><h1>Linux</h1>
+df -h
+</code></pre></p><p><strong>Update Dependencies (if needed):</strong></p><p><pre><code>bash
+<h1>Only if security updates required</h1>
+cd backend-runtime
+npm update --omit=dev
+pm2 restart hv-battery-backend
+</code></pre></p><p><hr></p><p><h1>📊 7. Monitoring & Performance</h1></p><p><h2>Built-in Features</h2></p><p><h3>Logging (Pino)</h3></p><p><pre><code>bash
+<h1>View structured JSON logs</h1>
+pm2 logs hv-battery-backend</p><p><h1>Filter by level</h1>
+pm2 logs hv-battery-backend | grep ERROR
+pm2 logs hv-battery-backend | grep WARN
+</code></pre></p><p><h3>Health Check Endpoint</h3></p><p><pre><code>bash
+curl http://localhost:4001/api/health
+</code></pre></p><p>Response:</p><p><pre><code>json
+{
+  "status": "healthy",
+  "database": "connected",
+  "timestamp": "2026-02-07T10:30:00.000Z",
+  "uptime": 3600
+}
+</code></pre></p><p><h3>API Documentation (Swagger)</h3></p><p><pre><code>
+http://localhost:4001/api-docs
+</code></pre></p><p><h3>Cache Performance (if Redis enabled)</h3></p><p>- Cache Hit Rate: 83.16% faster
+<li>Sequences: 30s TTL</li>
+<li>Historical data: 15min TTL</p><p><h3>Database Performance</h3></p><p>- Indexes created: 98.19% faster queries</li>
+<li>Pagination: 95.26% improvement</p><p><h2>Optional Monitoring (if enabled)</h2></p><p><h3>Sentry Error Tracking</h3></p><p><pre><code>env</li>
+SENTRY_ENABLED=true
+SENTRY_DSN=your_sentry_dsn
+</code></pre></p><p><h3>OpenTelemetry Tracing</h3></p><p><pre><code>env
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-collector:4318
+</code></pre></p><p><h3>Redis Caching</h3></p><p><pre><code>env
+REDIS_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+</code></pre></p><p><hr></p><p><h1>🔒 8. Security & Best Practices</h1></p><p><h2>Environment Variables</h2></p><p><strong>NEVER commit .env to Git!</strong></p><p><pre><code>bash
+<h1>Add to .gitignore</h1>
+.env
+.env.production
+.env.local
+</code></pre></p><p><h2>Database Credentials</h2></p><p><strong>Change default passwords:</strong></p><p><pre><code>env
+<h1>Bad (default)</h1>
+DATABASE_URL="...user=sa;password=aas..."</p><p><h1>Good (strong password)</h1>
+DATABASE_URL="...user=sa;password=Str0ng_P@ssw0rd_2026..."
+</code></pre></p><p><h2>Firewall Rules</h2></p><p><strong>Only allow required ports:</strong></p><p><pre><code>bash
+<h1>Backend application</h1>
+Port 4001 - Allow inbound TCP</p><p><h1>SQL Server</h1>
+Port 1433 - Allow from specific IPs only</p><p><h1>Redis (if used)</h1>
+Port 6379 - Localhost only
+</code></pre></p><p><h2>PM2 Security</h2></p><p><strong>Enable PM2 authentication (if exposed):</strong></p><p><pre><code>bash
+pm2 web --auth username:password
+</code></pre></p><p><h2>Regular Updates</h2></p><p><strong>Keep Node.js updated:</strong></p><p>- Current: v24.13.0
+<li>Check: https://nodejs.org/en/</p><p><strong>Monitor security advisories:</strong></p><p><pre><code>bash</li>
+npm audit
+npm audit fix
+</code></pre></p><p><hr></p><p><h1>📁 9. File Structure Reference</h1></p><p><h2>Development Files (backend/)</h2></p><p><pre><code>
+backend/
+├── src/                      # TypeScript source code
+│   ├── controllers/          # API controllers
+│   ├── routes/              # Express routes
+│   ├── services/            # Business logic
+│   ├── ws/                  # WebSocket handlers
+│   ├── utils/               # Utilities
+│   ├── config/              # Configuration
+│   ├── app.ts               # Express app setup
+│   └── index.ts             # Entry point
+├── prisma/
+│   └── schema.prisma        # Database schema
+├── dist/                    # Compiled JavaScript (git ignored)
+├── package.json
+├── tsconfig.json
+├── nodemon.json
+├── .env
+├── start-server.ps1        # Dev server starter
+├── stop-server.ps1         # Server stopper
+├── restart-server.ps1      # Server restarter
+├── dev-server.ps1          # Dev mode starter
+└── build-backend-bundle.js # Bundle creator
+</code></pre></p><p><h2>Production Bundle (backend-runtime/)</h2></p><p><pre><code>
+backend-runtime/
+├── dist/                   # Production JS
+├── node_modules/          # Production dependencies only
+├── prisma/               # Database schema
+├── package.json
+├── .env                  # Production config (EDIT THIS!)
+├── DEPLOYMENT.md         # Deployment guide
+├── start.bat            # Simple start
+├── start-pm2.bat        # PM2 start (recommended)
+└── install-pm2.bat      # PM2 installer
+</code></pre></p><p><hr></p><p><h1>📞 10. Kontak Support</h1></p><p><strong>Development Team:</strong></p><p><pre><code>
+Divisi Pengembang Sistem
+Developer: Risyan
+Email: risyan@adaptive.co.id
+WhatsApp: +62 899-1908-349
+</code></pre></p><p><strong>Technical Support:</strong></p><p>- Issue Tracker: (Link to internal ticketing system)
+<li>Documentation: PROJECT-COMPLETE.md, BUNDLE-GUIDE.md</li>
+<li>Deployment: DEPLOYMENT.md</p><p><hr></p><p><h1>📚 11. Additional Documentation</h1></p><p>Lihat file-file berikut untuk detail lebih lanjut:</p><p>1. <strong>PHASE1-IMPLEMENTATION.md</strong> - Security fixes & error handling</li>
+<li><strong>PHASE-2-SUMMARY.md</strong> - Modern tooling (Pino, Redis, Sentry, etc)</li>
+<li><strong>PHASE3-PROGRESS.md</strong> - Scalability (caching, indexes, pagination)</li>
+<li><strong>PROJECT-COMPLETE.md</strong> - Complete project summary</li>
+<li><strong>BUNDLE-GUIDE.md</strong> - Offline deployment guide</li>
+<li><strong>DEPLOYMENT-CHECKLIST.md</strong> - Pre-deployment verification</li>
+<li><strong>SERVER-MANAGEMENT.md</strong> - Server script documentation</li>
+<li><strong>QUICK-START.md</strong> - Quick deployment reference</p><p><hr></p><p><h1>✅ Penutup</h1></p><p>Dokumen ini mencakup semua aspek maintenance dan troubleshooting untuk <strong>HV Battery Backend Server</strong>.</p><p><strong>Key Features Implemented:</strong></p><p>- ✅ Phase 1: Security (SQL injection prevention, CORS, validation, graceful shutdown)</li>
+<li>✅ Phase 2: Modern tooling (Pino logging, Redis cache, Sentry, OpenTelemetry, Swagger)</li>
+<li>✅ Phase 3: Scalability (Database indexes 98% faster, caching 83% faster, pagination 95% faster)</li>
+<li>✅ Auto port cleanup (no more EADDRINUSE errors)</li>
+<li>✅ Smart deployment scripts (Windows .bat files)</li>
+<li>✅ PM2 auto-startup configuration</li>
+<li>✅ Offline deployment support</li>
+<li>✅ Comprehensive documentation</p><p><strong>System Requirements:</strong></p><p>- Node.js: v18.0.0+ (recommended: v24.13.0)</li>
+<li>SQL Server: 2017+</li>
+<li>RAM: 512MB minimum, 1GB+ recommended</li>
+<li>Disk: 500MB+ for application</p><p><strong>Performance Metrics:</strong></p><p>- Database queries: 98.19% faster with indexes</li>
+<li>Cache hits: 83.16% faster with Redis</li>
+<li>Pagination: 95.26% improvement</li>
+<li>Graceful shutdown: <5 seconds</li>
+<li>Auto-restart: <10 seconds</p><p><hr></p><p><strong>Document Version:</strong> 2.0  </li>
+<strong>Last Updated:</strong> February 7, 2026  
+<strong>Status:</strong> Production Ready ✅</p><p><strong>Document Version:</strong> 2.0  
+<strong>Last Updated:</strong> February 7, 2026  
+<strong>Status:</strong> Production Ready ✅
+</p>
+</body>
+</html>

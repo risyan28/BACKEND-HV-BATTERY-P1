@@ -1,6 +1,7 @@
 // src/ws/connectionHandler.ts
 import { Server, Socket } from 'socket.io'
 import { getConnection } from '@/utils/db'
+import { CORS_DEFAULTS } from '@/config/constants'
 
 let io: Server | null = null
 
@@ -12,10 +13,19 @@ const topicConfig = new Map<string, { eventName: string; pollingModule: any }>()
 
 export function initConnectionHandler(
   server: any,
-  pollings: { name: string; module: any; eventName: string }[]
+  pollings: { name: string; module: any; eventName: string }[],
 ) {
+  // ✅ CORS Configuration with whitelist for WebSocket
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
+    : ['*']
+
   io = new Server(server, {
-    cors: { origin: '*' },
+    cors: {
+      origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
+      credentials: true,
+      maxAge: CORS_DEFAULTS.MAX_AGE,
+    },
     transports: ['websocket'],
   })
 
@@ -59,7 +69,7 @@ export function initConnectionHandler(
       // Kirim snapshot awal
       try {
         const snapshot = await config.pollingModule.pollingLogic(
-          await getConnection()
+          await getConnection(),
         )
         socket.emit(config.eventName, snapshot)
       } catch (err) {

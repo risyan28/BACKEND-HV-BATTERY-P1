@@ -1,6 +1,28 @@
 // src/services/printHistory.service.ts
 
 import prisma from '@/prisma'
+import { cache } from '@/utils/cache'
+import { loggers } from '@/utils/logger'
+
+/**
+ * Cache configuration for print history
+ */
+const CACHE_CONFIG = {
+  KEY_PREFIX: 'printHistory:',
+  TTL: 900, // 15 minutes - historical data
+}
+
+/**
+ * Helper: Invalidate print history cache
+ */
+const invalidateCache = async () => {
+  // Clear all print history cache entries
+  await cache.delPattern(`${CACHE_CONFIG.KEY_PREFIX}*`)
+  loggers.cache.debug(
+    { pattern: `${CACHE_CONFIG.KEY_PREFIX}*` },
+    'Print history cache invalidated',
+  )
+}
 
 /**
  * Konversi nilai shift dari DB ke format FE ('DAY' | 'NIGHT')
@@ -59,21 +81,49 @@ const formatPrintHistory = (record: any) => {
 }
 
 export const printHistoryService = {
-  async getByDateRange(from: string, to: string) {
-    const fromDate = new Date(from)
-    const toDate = new Date(to)
-    toDate.setDate(toDate.getDate() + 1) // include whole "to" day
+  /**
+   * ✅ PHASE 3: Redis cache implemented + Pagination
+   * Cache key: printHistory:{from}:{to}:{page}:{limit}
+   * TTL: 15 minutes (historical data)
+   * Invalidated on: reprint()
+   */
+  async getByDateRange(
+    from: string,
+    to: string,
+    page: number = 1,
+    limit: number = 100,
+  ) {
+    const cacheKey = `${CACHE_CONFIG.KEY_PREFIX}${from}:${to}:${page}:${limit}`
 
-    const records = await prisma.tB_H_PRINT_LOG.findMany({
-      where: {
-        PROD_DATE: {
-          gte: fromDate,
-          lt: toDate,
-        },
+    return cache.getOrSet(
+      cacheKey,
+      async () => {
+        loggers.db.debug(
+          { from, to, page, limit },
+          'Fetching print history from database (cache miss)',
+        )
+        const fromDate = new Date(from)
+        const toDate = new Date(to)
+        toDate.setDate(toDate.getDate() + 1) // include whole "to" day
+
+        // Calculate pagination
+        const skip = (page - 1) * limit
+
+        const records = await prisma.tB_H_PRINT_LOG.findMany({
+          where: {
+            PROD_DATE: {
+              gte: fromDate,
+              lt: toDate,
+            },
+          },
+          orderBy: { DATETIME_MODIFIED: 'desc' },
+          skip: skip,
+          take: limit,
+        })
+        return records.map(formatPrintHistory)
       },
-      orderBy: { DATETIME_MODIFIED: 'desc' },
-    })
-    return records.map(formatPrintHistory)
+      CACHE_CONFIG.TTL,
+    )
   },
 
   async reprint(id: string) {
@@ -99,11 +149,14 @@ export const printHistoryService = {
       },
     })
 
+    // ✅ Invalidate cache after mutation
+    await invalidateCache()
+
     // 🖨️ Trigger re-print (pakai PRINT_QRCODE sebagai data utama)
     console.log(
       `🖨️ Re-print QR: ${record.PRINT_QRCODE} model: ${
         record.FMODEL_BATTERY || 'unknown'
-      }`
+      }`,
     )
     return { success: true, message: 'Re-print triggered' }
   },

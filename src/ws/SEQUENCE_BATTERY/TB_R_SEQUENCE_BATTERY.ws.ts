@@ -2,6 +2,11 @@
 
 import { createCTPolling } from '@/ws/poller.ws'
 import { formatDate, formatDateTime } from '@/utils/date'
+import { cache } from '@/utils/cache'
+import { loggers } from '@/utils/logger'
+
+// ✅ Cache config (sama seperti di service)
+const CACHE_CONFIG = { KEY: 'sequences:all' }
 
 function mapSequence(s: any) {
   return {
@@ -18,6 +23,16 @@ function mapSequence(s: any) {
 export const sequencePolling = createCTPolling({
   tableName: 'TB_R_SEQUENCE_BATTERY',
   eventName: 'sequences:update',
+
+  // ✅ CACHE INVALIDATION saat Change Tracking detect perubahan
+  onChangeDetected: async () => {
+    await cache.del(CACHE_CONFIG.KEY)
+    loggers.cache.debug(
+      { key: CACHE_CONFIG.KEY, source: 'CT' },
+      'Cache invalidated by Change Tracking',
+    )
+  },
+
   pollingLogic: async (pool) => {
     // ❗ snapshot logic fleksibel, bisa disesuaikan tabel lain
     const currentRes = await pool.query(`
@@ -30,12 +45,15 @@ export const sequencePolling = createCTPolling({
       ? mapSequence(currentRes.recordset[0])
       : null
 
-    const queueRes = await pool.query(`
-      SELECT TOP 500 * 
-      FROM TB_R_SEQUENCE_BATTERY
-      WHERE FSTATUS = 0 AND FID <> ${current?.FID ?? -1}
-      ORDER BY FID_ADJUST ASC
-    `)
+    // ✅ Fixed SQL injection by using parameterized query
+    const currentFID = current?.FID ?? -1
+    const queueRes = await pool.request().input('currentFID', currentFID)
+      .query(`
+        SELECT TOP 500 * 
+        FROM TB_R_SEQUENCE_BATTERY
+        WHERE FSTATUS = 0 AND FID <> @currentFID
+        ORDER BY FID_ADJUST ASC
+      `)
 
     const completedRes = await pool.query(`
       SELECT TOP 100 * 

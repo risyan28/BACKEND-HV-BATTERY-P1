@@ -1,11 +1,12 @@
 // src/ws/poller.ws.ts
 import sql from 'mssql'
 import { getConnection } from '@/utils/db'
+import { POLLING } from '@/config/constants'
 
 // ---- Cursor helper ----
 async function loadCursor(
   pool: sql.ConnectionPool,
-  tableName: string
+  tableName: string,
 ): Promise<number | null> {
   const res = await pool
     .request()
@@ -18,7 +19,7 @@ async function loadCursor(
 async function saveCursor(
   pool: sql.ConnectionPool,
   tableName: string,
-  version: number
+  version: number,
 ) {
   await pool
     .request()
@@ -38,28 +39,31 @@ async function saveCursor(
 export function createCTPolling<T>({
   tableName,
   eventName,
-  intervalMs = 2000,
+  intervalMs = POLLING.INTERVAL_MS, // ✅ Use constant
   pollingLogic,
+  onChangeDetected, // ✅ NEW: callback untuk cache invalidation
 }: {
   tableName: string
   eventName: string
   intervalMs?: number
   pollingLogic: (pool: sql.ConnectionPool) => Promise<T>
+  onChangeDetected?: () => Promise<void> // ✅ Optional async callback
 }) {
   let pollingInterval: NodeJS.Timeout | null = null
   let lastVersion: number | null = null
+  let retryCount = 0
 
   return {
     // 🔹 Terima io dan room
     start: async (io: any, room: string) => {
       if (pollingInterval) {
         console.log(
-          `🔁 [WS] Polling for ${tableName} already running (room: ${room})`
+          `🔁 [WS] Polling for ${tableName} already running (room: ${room})`,
         )
         return {
           stop: () => {
             console.log(
-              `ℹ️ [WS] Stop called on already running polling for ${tableName} (room: ${room})`
+              `ℹ️ [WS] Stop called on already running polling for ${tableName} (room: ${room})`,
             )
           },
         }
@@ -67,7 +71,7 @@ export function createCTPolling<T>({
 
       try {
         console.log(
-          `🚀 [WS] Initializing CT polling for ${tableName} (room: ${room})`
+          `🚀 [WS] Initializing CT polling for ${tableName} (room: ${room})`,
         )
         const pool = await getConnection()
         lastVersion = await loadCursor(pool, tableName)
@@ -84,19 +88,42 @@ export function createCTPolling<T>({
 
             if (result.recordset.length > 0) {
               const maxVersion = Math.max(
-                ...result.recordset.map((r) => Number(r.SYS_CHANGE_VERSION))
+                ...result.recordset.map((r) => Number(r.SYS_CHANGE_VERSION)),
               )
               await saveCursor(pool, tableName, maxVersion)
               lastVersion = maxVersion
 
+              // ✅ INVALIDATE CACHE sebelum broadcast (ensure consistency)
+              if (onChangeDetected) {
+                await onChangeDetected()
+              }
+
               const snapshot = await pollingLogic(pool)
               io.to(room).emit(eventName, snapshot)
               console.log(
-                `📢 [WS] Broadcast ${tableName} to room ${room} (changes: ${result.recordset.length}, newVersion: ${maxVersion})`
+                `📢 [WS] Broadcast ${tableName} to room ${room} (changes: ${result.recordset.length}, newVersion: ${maxVersion})`,
               )
+
+              // ✅ Reset retry count on success
+              retryCount = 0
             }
           } catch (err) {
-            console.error(`[WS] CT polling error for ${tableName}:`, err)
+            retryCount++
+            console.error(
+              `[WS] CT polling error for ${tableName} (retry ${retryCount}/${POLLING.MAX_RETRIES}):`,
+              err,
+            )
+
+            // ✅ Stop polling if max retries exceeded
+            if (retryCount >= POLLING.MAX_RETRIES) {
+              console.error(
+                `❌ [WS] Max retries exceeded for ${tableName}, stopping polling`,
+              )
+              if (pollingInterval) {
+                clearInterval(pollingInterval)
+                pollingInterval = null
+              }
+            }
           }
         }, intervalMs)
 
@@ -105,8 +132,9 @@ export function createCTPolling<T>({
             if (pollingInterval) {
               clearInterval(pollingInterval)
               pollingInterval = null
+              retryCount = 0
               console.log(
-                `🛑 [WS] Stopped CT polling for ${tableName} (room: ${room})`
+                `🛑 [WS] Stopped CT polling for ${tableName} (room: ${room})`,
               )
             }
           },
@@ -114,12 +142,12 @@ export function createCTPolling<T>({
       } catch (initError) {
         console.error(
           `💥 [WS] Failed to initialize polling for ${tableName}:`,
-          initError
+          initError,
         )
         return {
           stop: () => {
             console.log(
-              `⚠️ [WS] Dummy stop for failed ${tableName} (room: ${room})`
+              `⚠️ [WS] Dummy stop for failed ${tableName} (room: ${room})`,
             )
           },
         }

@@ -2,32 +2,24 @@
 
 import { Request, Response } from 'express'
 import { traceabilityService } from '@/services/traceability.service'
+import { asyncHandler } from '@/middleware/errorHandler'
+import { dateRangeQuerySchema } from '@/schemas/traceability.schema'
 
 export const traceabilityController = {
-  async getByDateRange(req: Request, res: Response) {
-    try {
-      const { from, to } = req.query
+  // ✅ Get traceability data with validation + Pagination
+  getByDateRange: asyncHandler(async (req: Request, res: Response) => {
+    const validatedQuery = dateRangeQuerySchema.parse(req.query)
 
-      if (!from || !to || typeof from !== 'string' || typeof to !== 'string') {
-        return res.status(400).json({
-          error: 'Query parameters "from" and "to" are required (format: YYYY-MM-DD)',
-        })
-      }
+    const data = await traceabilityService.getByDateRange(
+      validatedQuery.from,
+      validatedQuery.to,
+      validatedQuery.page,
+      validatedQuery.limit,
+    )
 
-      // Validasi format tanggal sederhana
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/
-      if (!dateRegex.test(from) || !dateRegex.test(to)) {
-        return res.status(400).json({
-          error: 'Date must be in YYYY-MM-DD format',
-        })
-      }
-
-      const data = await traceabilityService.getByDateRange(from, to)
-      console.log(`👉 Send API /traceability/search result (${data.length} items)`)
-      res.json(data)
-    } catch (err: any) {
-      console.error('❌ Error in search traceability:', err)
-      res.status(500).json({ error: err.message || 'Failed to search traceability data' })
-    }
-  },
+    console.log(
+      `👉 Send API /traceability/search result (${data.length} items, page=${validatedQuery.page}, limit=${validatedQuery.limit})`,
+    )
+    res.json(data)
+  }),
 }

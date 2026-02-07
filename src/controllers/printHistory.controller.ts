@@ -2,34 +2,26 @@
 
 import { Request, Response } from 'express'
 import { printHistoryService } from '@/services/printHistory.service'
+import { asyncHandler } from '@/middleware/errorHandler'
+import { dateRangeQuerySchema } from '@/schemas/traceability.schema'
 
 export const printHistoryController = {
-  async getByDateRange(req: Request, res: Response) {
-    try {
-      const { from, to } = req.query
+  // ✅ Get print history by date range with pagination
+  getByDateRange: asyncHandler(async (req: Request, res: Response) => {
+    const validatedQuery = dateRangeQuerySchema.parse(req.query)
 
-      if (!from || !to || typeof from !== 'string' || typeof to !== 'string') {
-        return res.status(400).json({
-          error: 'Query parameters "from" and "to" are required (format: YYYY-MM-DD)',
-        })
-      }
+    const data = await printHistoryService.getByDateRange(
+      validatedQuery.from,
+      validatedQuery.to,
+      validatedQuery.page,
+      validatedQuery.limit,
+    )
 
-      // Validasi format tanggal sederhana
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/
-      if (!dateRegex.test(from) || !dateRegex.test(to)) {
-        return res.status(400).json({
-          error: 'Date must be in YYYY-MM-DD format',
-        })
-      }
-
-      const data = await printHistoryService.getByDateRange(from, to)
-      console.log(`👉 Send API /print-history/search result (${data.length} items)`)
-      res.json(data)
-    } catch (err: any) {
-      console.error('❌ Error in search print history:', err)
-      res.status(500).json({ error: err.message || 'Failed to search print history' })
-    }
-  },
+    console.log(
+      `👉 Send API /print-history/search result (${data.length} items, page=${validatedQuery.page}, limit=${validatedQuery.limit})`,
+    )
+    res.json(data)
+  }),
 
   async reprint(req: Request, res: Response) {
     try {
@@ -47,7 +39,9 @@ export const printHistoryController = {
       if (err.message === 'Print log not found') {
         res.status(404).json({ error: err.message })
       } else {
-        res.status(500).json({ error: err.message || 'Failed to trigger re-print' })
+        res
+          .status(500)
+          .json({ error: err.message || 'Failed to trigger re-print' })
       }
     }
   },
