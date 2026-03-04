@@ -144,13 +144,19 @@ const swaggerSpec = swaggerJsdoc(options)
  * Setup Swagger UI documentation
  */
 export function setupSwagger(app: Express) {
-  // Swagger UI
+  // Swagger UI with offline configuration
   app.use(
     '/api-docs',
     swaggerUi.serve,
     swaggerUi.setup(swaggerSpec, {
       customCss: '.swagger-ui .topbar { display: none }',
       customSiteTitle: 'HV Battery API Docs',
+      swaggerOptions: {
+        // ✅ Force local assets only (no CDN fallback)
+        url: '/api-docs.json',
+        // Disable external requests
+        tryItOutEnabled: true,
+      },
     }),
   )
 

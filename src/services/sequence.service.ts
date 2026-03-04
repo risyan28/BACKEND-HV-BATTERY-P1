@@ -92,6 +92,26 @@ export const sequenceService = {
           ? queue.filter((s: { FID: number }) => s.FID !== current.FID)
           : queue
 
+        // Log TIME RECEIVED ALC and TIME PRINT LABEL for current sequence
+        if (current) {
+          loggers.db.debug(
+            {
+              timeReceivedALC: formatDateTime(current.FTIME_RECEIVED),
+              fid: current.FID,
+              seqNo: current.FSEQ_NO,
+            },
+            'TIME RECEIVED ALC',
+          )
+          loggers.db.debug(
+            {
+              timePrintLabel: formatDateTime(current.FTIME_PRINTED),
+              fid: current.FID,
+              seqNo: current.FSEQ_NO,
+            },
+            'TIME PRINT LABEL',
+          )
+        }
+
         return {
           current: current ? mapData(current) : null,
           queue: filteredQueue.map(mapData),

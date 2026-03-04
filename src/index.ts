@@ -33,24 +33,60 @@ createRedisClient()
 // Setup WebSocket
 setupWebSocket(httpServer)
 
-// Test koneksi database
-getConnection().catch((err) => {
-  loggers.db.error({ err }, 'Failed to connect to database')
-  process.exit(1)
-})
+// ✅ Test database connection with retry (startup check)
+;(async () => {
+  try {
+    await getConnection()
+    loggers.db.info('Database connection established')
+  } catch (err: any) {
+    const errorMsg = err.code || err.message || 'Unknown error'
+    loggers.db.fatal(
+      { error: errorMsg },
+      'Failed to connect to database after retries',
+    )
+    process.exit(1)
+  }
+})()
 
-// Jalankan server
-httpServer.listen(PORT, '0.0.0.0', () => {
-  logStartupInfo(PORT)
-  loggers.server.info(
-    {
-      redis: process.env.REDIS_ENABLED === 'true',
-      sentry: process.env.SENTRY_ENABLED === 'true',
-      otel: process.env.OTEL_ENABLED === 'true',
-    },
-    'Phase 2 features initialized',
-  )
-})
+// Jalankan server dengan retry logic untuk handle EADDRINUSE
+const startServer = (retries = 3, delay = 2000) => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    logStartupInfo(PORT)
+    loggers.server.info(
+      {
+        redis: process.env.REDIS_ENABLED === 'true',
+        sentry: process.env.SENTRY_ENABLED === 'true',
+        otel: process.env.OTEL_ENABLED === 'true',
+      },
+      'Phase 2 features initialized',
+    )
+  })
+
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE' && retries > 0) {
+      loggers.server.warn(
+        { port: PORT, retriesLeft: retries - 1, delay },
+        'Port in use, retrying...',
+      )
+      setTimeout(() => {
+        httpServer.close()
+        startServer(retries - 1, delay)
+      }, delay)
+    } else if (err.code === 'EADDRINUSE') {
+      loggers.server.fatal(
+        { port: PORT },
+        'Port still in use after retries. Please run: npm run stop',
+      )
+      process.exit(1)
+    } else {
+      const errorMsg = err.code || err.message || 'Unknown error'
+      loggers.server.fatal({ error: errorMsg }, 'Server error')
+      process.exit(1)
+    }
+  })
+}
+
+startServer()
 
 // ✅ Graceful shutdown handlers with complete cleanup
 const handleShutdown = async (signal: string) => {
@@ -63,12 +99,15 @@ process.on('SIGTERM', () => handleShutdown('SIGTERM'))
 process.on('SIGINT', () => handleShutdown('SIGINT'))
 
 // Handle uncaught errors with structured logging
-process.on('uncaughtException', (err) => {
-  loggers.server.fatal({ err }, 'Uncaught Exception')
+process.on('uncaughtException', (err: NodeJS.ErrnoException) => {
+  const errorMsg =
+    (err as NodeJS.ErrnoException).code || err.message || String(err)
+  loggers.server.fatal({ error: errorMsg }, 'Uncaught Exception')
   handleShutdown('uncaughtException')
 })
 
-process.on('unhandledRejection', (reason, promise) => {
-  loggers.server.fatal({ reason, promise }, 'Unhandled Rejection')
+process.on('unhandledRejection', (reason: any) => {
+  const errorMsg = reason?.code || reason?.message || String(reason)
+  loggers.server.fatal({ error: errorMsg }, 'Unhandled Rejection')
   handleShutdown('unhandledRejection')
 })

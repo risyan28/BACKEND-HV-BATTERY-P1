@@ -68,13 +68,16 @@ export async function gracefulShutdown(
     clearTimeout(forceShutdownTimer)
     console.log('✅ Graceful shutdown completed')
 
-    // Small delay to ensure port is fully released before process exits
-    // This helps prevent EADDRINUSE errors in nodemon/dev mode
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    // Wait longer to ensure port is fully released before process exits
+    // Increased from 500ms to 1000ms to prevent EADDRINUSE errors
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     process.exit(0)
   } catch (err) {
-    console.error('❌ Error during graceful shutdown:', err)
+    console.error(
+      '❌ Error during graceful shutdown:',
+      (err as any).code || (err as any).message || String(err),
+    )
     clearTimeout(forceShutdownTimer)
     process.exit(1)
   }

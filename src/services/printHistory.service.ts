@@ -58,25 +58,26 @@ const formatDate = (date: Date | null | undefined): string => {
  */
 const formatPrintHistory = (record: any) => {
   return {
-    // 🔸 FID (Int) → konversi ke string (karena FE pakai string ID)
-    id: record.FID.toString(),
+    // 🔸 FID (Int) → keep as number (FE expects number type)
+    id: record.FID,
 
-    // 🔸 PRINT_QRCODE sebagai batteryPackId
-    batteryPackId: record.PRINT_QRCODE || `FID-${record.FID}`,
+    // 🔸 PRINT_QRCODE sebagai battery_pack_id (snake_case for FE)
+    battery_pack_id: record.PRINT_QRCODE || `FID-${record.FID}`,
 
-    // 🔸 PROD_DATE → productionDate
-    productionDate: formatDate(record.PROD_DATE),
+    // 🔸 PROD_DATE → production_date (snake_case, ISO format)
+    production_date: record.PROD_DATE?.toISOString() || null,
 
     // 🔸 FSHIFT → map ke 'DAY'/'NIGHT'
     shift: mapShift(record.FSHIFT),
 
-    // 🔸 DATETIME_MODIFIED sebagai timePrint (asumsi: waktu terakhir di-print/ubah)
-    timePrint:
-      formatDateTime(record.DATETIME_MODIFIED) ||
-      formatDateTime(record.DATETIME_RECEIVED),
+    // 🔸 DATETIME_MODIFIED sebagai print_datetime (snake_case, ISO format)
+    print_datetime:
+      record.DATETIME_MODIFIED?.toISOString() ||
+      record.DATETIME_RECEIVED?.toISOString() ||
+      null,
 
-    // 🔸 FMODEL_BATTERY
-    modelBattery: record.FMODEL_BATTERY,
+    // 🔸 FMODEL_BATTERY sebagai model_battery (snake_case)
+    model_battery: record.FMODEL_BATTERY,
   }
 }
 

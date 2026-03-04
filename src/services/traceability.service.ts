@@ -109,7 +109,10 @@ export const traceabilityService = {
           // Return raw result (kolom sudah dalam format yang benar dari view)
           return result
         } catch (error: any) {
-          console.error('❌ Error fetching traceability data:', error)
+          console.error(
+            '❌ Error fetching traceability data:',
+            error.code || error.message,
+          )
 
           // Berikan error message yang lebih helpful
           if (error.message.includes('Invalid column name')) {

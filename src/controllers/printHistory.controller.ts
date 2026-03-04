@@ -20,6 +20,7 @@ export const printHistoryController = {
     console.log(
       `👉 Send API /print-history/search result (${data.length} items, page=${validatedQuery.page}, limit=${validatedQuery.limit})`,
     )
+    console.log('📦 Data:', JSON.stringify(data, null, 2))
     res.json(data)
   }),
 
@@ -35,7 +36,8 @@ export const printHistoryController = {
       console.log(`👉 Re-print triggered for ID: ${id}`)
       res.json(result)
     } catch (err: any) {
-      console.error('❌ Error in reprint:', err)
+      const errorMsg = err.code || err.message || 'Unknown error'
+      console.error('❌ Error in reprint:', errorMsg)
       if (err.message === 'Print log not found') {
         res.status(404).json({ error: err.message })
       } else {

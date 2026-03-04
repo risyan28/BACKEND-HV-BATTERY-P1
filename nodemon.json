@@ -2,7 +2,7 @@
   "watch": ["dist"],
   "ext": "js",
   "exec": "node -r module-alias/register dist/index.js",
-  "delay": 3500,
+  "delay": 5000,
   "signal": "SIGTERM",
   "ignore": [
     "dist/**/*.test.js",

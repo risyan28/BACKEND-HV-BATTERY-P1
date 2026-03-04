@@ -61,21 +61,61 @@ export function initConnectionHandler(
           } else {
             console.error(`[WS] Invalid polling result for ${topic}`)
           }
-        } catch (err) {
-          console.error(`❌ Failed to start polling for ${topic}:`, err)
+        } catch (err: any) {
+          const errorMsg = err.code || err.message || 'Unknown error'
+          console.error(`❌ Failed to start polling for ${topic}: ${errorMsg}`)
         }
+      } else {
+        // ✅ ENHANCEMENT: Jika bukan subscriber pertama (polling sudah jalan),
+        // tetap kirim snapshot FRESH untuk client yang baru subscribe
+        console.log(
+          `🔄 Client ${socket.id} joining existing room ${topic} (${currentSubscribers} subscribers)`,
+        )
       }
 
-      // Kirim snapshot awal
+      // Kirim snapshot TERBARU ke client yang baru subscribe
       try {
         const snapshot = await config.pollingModule.pollingLogic(
           await getConnection(),
         )
         socket.emit(config.eventName, snapshot)
-      } catch (err) {
-        console.error(`[WS] Error snapshot for ${topic}:`, err)
+        console.log(
+          `📤 Sent initial snapshot to ${socket.id} for topic: ${topic}`,
+        )
+      } catch (err: any) {
+        const errorMsg = err.code || err.message || 'Unknown error'
+        console.error(
+          `⚠️ [WS] Snapshot error for ${topic} (${socket.id}): ${errorMsg}`,
+        )
         socket.emit(`${config.eventName}:error`, {
-          message: 'Failed to fetch initial data',
+          message: 'Failed to fetch initial data. Database may be unavailable.',
+          error: errorMsg,
+        })
+      }
+    })
+
+    // ✅ NEW: Manual sync request untuk force refresh data
+    socket.on('sync', async (topic: string) => {
+      const config = topicConfig.get(topic)
+      if (!config) {
+        console.warn(`⚠️ Unknown sync topic: ${topic}`)
+        return
+      }
+
+      try {
+        const snapshot = await config.pollingModule.pollingLogic(
+          await getConnection(),
+        )
+        socket.emit(config.eventName, snapshot)
+        console.log(`🔄 Manual sync sent to ${socket.id} for topic: ${topic}`)
+      } catch (err: any) {
+        const errorMsg = err.code || err.message || 'Unknown error'
+        console.error(
+          `⚠️ [WS] Sync error for ${topic} (${socket.id}): ${errorMsg}`,
+        )
+        socket.emit(`${config.eventName}:error`, {
+          message: 'Failed to sync data. Database may be unavailable.',
+          error: errorMsg,
         })
       }
     })

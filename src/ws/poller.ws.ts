@@ -107,22 +107,38 @@ export function createCTPolling<T>({
               // ✅ Reset retry count on success
               retryCount = 0
             }
-          } catch (err) {
+          } catch (err: any) {
             retryCount++
+
+            // ✅ Log only essential error info (not full stack trace)
+            const errorMsg = err.code || err.message || 'Unknown error'
             console.error(
-              `[WS] CT polling error for ${tableName} (retry ${retryCount}/${POLLING.MAX_RETRIES}):`,
-              err,
+              `⚠️ [WS] Polling error for ${tableName} (attempt ${retryCount}/${POLLING.MAX_RETRIES}): ${errorMsg}`,
             )
+
+            // ✅ Notify clients about DB issue
+            io.to(room).emit(`${eventName}:error`, {
+              message: 'Database temporarily unavailable',
+              retryCount,
+              maxRetries: POLLING.MAX_RETRIES,
+            })
 
             // ✅ Stop polling if max retries exceeded
             if (retryCount >= POLLING.MAX_RETRIES) {
               console.error(
-                `❌ [WS] Max retries exceeded for ${tableName}, stopping polling`,
+                `❌ [WS] Max retries exceeded for ${tableName}. Stopping polling for room: ${room}`,
               )
               if (pollingInterval) {
                 clearInterval(pollingInterval)
                 pollingInterval = null
               }
+
+              // ✅ Notify clients that polling stopped
+              io.to(room).emit(`${eventName}:error`, {
+                message:
+                  'Polling stopped due to repeated failures. Please refresh the page.',
+                fatal: true,
+              })
             }
           }
         }, intervalMs)
@@ -139,11 +155,20 @@ export function createCTPolling<T>({
             }
           },
         }
-      } catch (initError) {
+      } catch (initError: any) {
+        const errorMsg = initError.code || initError.message || 'Unknown error'
         console.error(
-          `💥 [WS] Failed to initialize polling for ${tableName}:`,
-          initError,
+          `💥 [WS] Failed to initialize polling for ${tableName} (room: ${room}): ${errorMsg}`,
         )
+
+        // ✅ Notify clients about initialization failure
+        io.to(room).emit(`${eventName}:error`, {
+          message:
+            'Failed to initialize real-time updates. Database may be unavailable.',
+          error: errorMsg,
+          fatal: true,
+        })
+
         return {
           stop: () => {
             console.log(

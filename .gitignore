@@ -5,30 +5,34 @@ node_modules/
 dist/
 build/
 
-#Runtime
+# Runtime bundle (di-generate oleh build-backend-bundle.js, tidak perlu commit)
 backend-runtime/
+backend-runtime.zip
 
-# Prisma
-prisma/dev.db
-prisma/migrations/*.sqlite
-prisma/seed.ts
+# Prisma — generated client (di-generate ulang via prisma generate)
+node_modules/.prisma/
+prisma/generated/
 
-# Environment variables
+# Environment variables — JANGAN commit file .env asli
 .env
 .env.local
 .env.development
 .env.production
+# Catch-all for any other .env variants
+.env.*
+# ✅ Tapi .env.example HARUS di-commit (berisi template variabel tanpa nilai sensitif)
+!.env.example
 
 # Logs
-logs
+logs/
 *.log
 
 # Runtime data
-pids
+pids/
 *.pid
 *.pid.lock
 
-# Coverage directory used by tools like istanbul
+# Test coverage
 coverage/
 
 # Temp files
@@ -43,14 +47,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Docker
-.dockerignore
-docker-compose.override.yml
-
-# Local env files
-.env*
-
 # Build artifacts
-*.zip
 *.tar.gz
 *.tgz

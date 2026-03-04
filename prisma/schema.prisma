@@ -190,6 +190,7 @@ model TB_R_TARGET_PROD {
   FMODEL_BATTERY     String?   @db.VarChar(30)
   FPACK_PART_BATTERY String?   @db.VarChar(5)
   FTARGET            Int?      @default(0, map: "DF_TB_R_TARGET_PROD_ftarget")
+  FPROD_DATE         DateTime? @db.Date
   FSEQ_K0            String?   @db.VarChar(3)
   FBODY_NO_K0        String?   @db.VarChar(5)
   FID_RECEIVER       String?   @db.VarChar(50)
@@ -231,8 +232,8 @@ model TB_H_TRACEABILITY_INSPECTION_MACHINE {
   Pack_basic_information_Equipment_ID                                                         String?   @db.VarChar(20)
   Pack_basic_information_Battery_module_No                                                    String?   @db.VarChar(50)
   Pack_basic_information_Battery_pack_No                                                      String?   @db.VarChar(50)
-  Pack_basic_information_Production_start_date_and_time                                       DateTime?
-  Pack_basic_information_Production_completed_date_and_time                                   DateTime?
+  Pack_basic_information_Production_start_date_and_time                                       DateTime? @db.DateTime
+  Pack_basic_information_Production_completed_date_and_time                                   DateTime? @db.DateTime
   Main_relay_function_Voltage_SMR_B_ON                                                        Decimal?  @db.Decimal(10, 3)
   Total_voltage_measurement_V0_and_SMR_B_AG_ON_confirmation                                   Decimal?  @db.Decimal(10, 3)
   Insulation_resistance_test_Insulation_resistance_measurement_Side_insulation_resistance_V0m Decimal?  @db.Decimal(10, 3)
@@ -570,27 +571,39 @@ model TB_H_TRACEABILITY_MODULE_INSPECTION {
   @@index([TRACEABILITY_TIMESTAMP(sort: Desc)], map: "IX_MODULE_TIMESTAMP")
 }
 
-/// VIEW: Battery Traceability aggregated data
-/// Karena ini VIEW (bukan table), tidak punya unique identifier
-/// Gunakan @@ignore atau define PACK_ID sebagai pseudo-id
-model VW_TRACEABILITY_PIS {
-  PACK_ID                String    @id @db.VarChar(50)
-  MODULE_1               String?   @db.VarChar(50)
-  MODULE_2               String?   @db.VarChar(50)
-  LIFETIME_MODULE1_InspModule String? @db.VarChar(50)
-  LIFETIME_MODULE2_InspModule String? @db.VarChar(50)
-  JUDGEMENT_VALUE        String?   @db.VarChar(10)
-  UNLOADING_TIME         DateTime? @db.DateTime
-  
-  // Print Log columns akan ada PROD_DATE_PrintLog
-  PROD_DATE_PrintLog     DateTime? @db.Date
-  FSHIFT_PrintLog        String?   @db.VarChar(1)
-  
-  // Kolom lainnya akan auto-generated oleh stored procedure
-  // Karena struktur dinamis (pivot tightening), gunakan @@ignore
-  // atau query dengan $queryRawUnsafe
-  
-  @@map("VW_TRACEABILITY_PIS")
-  @@ignore
+model TB_H_POS_FINAL_JUDGEMENT {
+  ID                 Int       @id(map: "PK__TB_H_POS__3214EC2799FCEAEB") @default(autoincrement())
+  MODULE_1           String?   @db.NVarChar(Max)
+  MODULE_2           String?   @db.NVarChar(Max)
+  PACK_ID            String    @db.NVarChar(100)
+  LIFETIME_MODULE1   String?   @db.NVarChar(Max)
+  LIFETIME_MODULE2   String?   @db.NVarChar(Max)
+  JUDGE_INSP_MACHINE String?   @db.VarChar(10)
+  JUDGE_MAN_ASSY_1   String?   @db.VarChar(10)
+  JUDGE_MAN_ASSY_2   String?   @db.VarChar(10)
+  JUDGE_MAN_ASSY_3   String?   @db.VarChar(10)
+  JUDGE_INSP_MODULE  String?   @db.VarChar(10)
+  JUDGE_LABEL_CAM    String?   @db.VarChar(10)
+  OVERALL_JUDGEMENT  String?   @db.VarChar(10)
+  CREATED_AT         DateTime? @default(now(), map: "DF__TB_H_POS___CREAT__0D99FE17") @db.DateTime
 }
 
+model TB_H_POS_UNLOADING {
+  ID               Int       @id(map: "PK__TB_R_POS__3214EC273581B09D") @default(autoincrement())
+  PACK_ID          String    @db.NVarChar(100)
+  MODULE_1         String?   @db.NVarChar(Max)
+  MODULE_2         String?   @db.NVarChar(Max)
+  LIFETIME_MODULE1 String?   @db.NVarChar(10)
+  LIFETIME_MODULE2 String?   @db.NVarChar(10)
+  JUDGEMENT_VALUE  String?   @db.NVarChar(2)
+  CREATED_AT       DateTime? @default(now(), map: "DF__TB_R_POS___CREAT__72E607DB") @db.DateTime
+}
+
+model tb_melody {
+  fid     Int       @id(map: "PK_tb_melody") @default(autoincrement())
+  fline   String?   @db.VarChar(50)
+  fname   String?   @db.VarChar(50)
+  fmelody String?   @db.VarChar(50)
+  value   String?   @db.VarChar(2)
+  fupdate DateTime? @db.DateTime
+}

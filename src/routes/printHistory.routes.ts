@@ -68,4 +68,4 @@ router.get('/search', printHistoryController.getByDateRange)
  */
 router.post('/:id/reprint', printHistoryController.reprint)
 
-export default router
+export { router as printHistoryRouter }

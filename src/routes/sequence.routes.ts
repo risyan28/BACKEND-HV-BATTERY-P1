@@ -223,4 +223,4 @@ router.patch('/:id/insert', sequenceController.insertSequence)
  */
 router.delete('/:id/parked', sequenceController.removeFromParked)
 
-export default router
+export { router as sequenceRouter }

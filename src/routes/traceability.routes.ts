@@ -45,4 +45,4 @@ const router = Router()
  */
 router.get('/search', traceabilityController.getByDateRange)
 
-export default router
+export { router as traceabilityRouter }

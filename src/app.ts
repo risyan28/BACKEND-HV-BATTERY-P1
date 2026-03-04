@@ -1,9 +1,10 @@
 import express from 'express'
 import cors from 'cors'
-import PrintHistoryRoutes from '@/routes/printHistory.routes'
-import sequenceRoutes from '@/routes/sequence.routes'
-import healthRoutes from '@/routes/health.routes'
-import traceabilityRoutes from '@/routes/traceability.routes'
+import { printHistoryRouter } from '@/routes/printHistory.routes'
+import { sequenceRouter } from '@/routes/sequence.routes'
+import { healthRouter } from '@/routes/health.routes'
+import { traceabilityRouter } from '@/routes/traceability.routes'
+import { logsRouter } from '@/routes/logs.routes'
 import { errorHandler } from '@/middleware/errorHandler'
 import { requestLogger } from '@/middleware/requestLogger'
 import { apiLimiter } from '@/middleware/rateLimiter'
@@ -34,10 +35,11 @@ app.use(requestLogger)
 setupSwagger(app)
 
 // Routes with rate limiting
-app.use('/api/sequences', apiLimiter, sequenceRoutes)
-app.use('/api/health', healthRoutes) // No rate limit for health checks
-app.use('/api/print-history', apiLimiter, PrintHistoryRoutes)
-app.use('/api/traceability', apiLimiter, traceabilityRoutes)
+app.use('/api/sequences', apiLimiter, sequenceRouter)
+app.use('/api/health', healthRouter) // No rate limit for health checks
+app.use('/api/print-history', apiLimiter, printHistoryRouter)
+app.use('/api/traceability', apiLimiter, traceabilityRouter)
+app.use('/api/logs', logsRouter) // No rate limit for FE logs
 
 // ✅ Centralized error handler (Sentry v10 automatically handles errors before this)
 app.use(errorHandler)

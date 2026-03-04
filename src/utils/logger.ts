@@ -1,5 +1,10 @@
-// src/utils/logger.ts
 import pino from 'pino'
+import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 /**
  * Pino Logger Configuration
@@ -15,9 +20,10 @@ export const logger = pino({
           target: 'pino-pretty',
           options: {
             colorize: true,
-            translateTime: 'HH:MM:ss Z',
             ignore: 'pid,hostname',
             singleLine: false,
+            messageFormat: '{msg}',
+            timestampKey: 'timestamp',
           },
         }
       : undefined,
@@ -25,8 +31,15 @@ export const logger = pino({
     level: (label) => {
       return { level: label.toUpperCase() }
     },
+    log: (object) => {
+      // Tambahkan timestamp lokal Jakarta
+      return {
+        ...object,
+        timestamp: dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+      }
+    },
   },
-  timestamp: pino.stdTimeFunctions.isoTime,
+  timestamp: () => '', // Nonaktifkan timestamp default
 })
 
 /**

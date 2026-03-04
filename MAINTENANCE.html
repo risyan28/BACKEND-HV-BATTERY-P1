@@ -1,0 +1,977 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Backend Maintenance Guide — HV Battery</title>
+    <style>
+      :root {
+        --primary: #1e3a5f;
+        --accent: #2563eb;
+        --success: #16a34a;
+        --warning: #d97706;
+        --danger: #dc2626;
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --border: #e2e8f0;
+        --code-bg: #1e293b;
+        --code-text: #e2e8f0;
+        --text: #1e293b;
+        --muted: #64748b;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Segoe UI', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+
+      /* Header */
+      .header {
+        background: var(--primary);
+        color: #fff;
+        padding: 32px 40px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+      .header-icon {
+        font-size: 48px;
+      }
+      .header h1 {
+        font-size: 1.8rem;
+        font-weight: 700;
+      }
+      .header p {
+        opacity: 0.75;
+        margin-top: 4px;
+        font-size: 0.95rem;
+      }
+      .badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 2px 12px;
+        font-size: 0.78rem;
+        margin-top: 8px;
+      }
+
+      /* Layout */
+      .container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 32px 24px;
+      }
+
+      /* Table of contents */
+      .toc {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin-bottom: 32px;
+      }
+      .toc h2 {
+        font-size: 1rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 12px;
+      }
+      .toc ol {
+        padding-left: 20px;
+      }
+      .toc li {
+        margin: 4px 0;
+      }
+      .toc a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .toc a:hover {
+        text-decoration: underline;
+      }
+
+      /* Section */
+      .section {
+        margin-bottom: 40px;
+      }
+      .section h2 {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--primary);
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 8px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .section h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 16px 0 8px;
+        color: var(--text);
+      }
+
+      /* Cards */
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+      .card-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 640px) {
+        .card-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Status badges */
+      .tag {
+        display: inline-block;
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+      .tag-success {
+        background: #dcfce7;
+        color: var(--success);
+      }
+      .tag-warning {
+        background: #fef3c7;
+        color: var(--warning);
+      }
+      .tag-danger {
+        background: #fee2e2;
+        color: var(--danger);
+      }
+      .tag-info {
+        background: #dbeafe;
+        color: var(--accent);
+      }
+
+      /* Code */
+      pre {
+        background: var(--code-bg);
+        color: var(--code-text);
+        border-radius: 8px;
+        padding: 16px;
+        overflow-x: auto;
+        font-size: 0.875rem;
+        font-family: 'Consolas', 'Courier New', monospace;
+        margin: 8px 0;
+      }
+      code {
+        font-family: 'Consolas', 'Courier New', monospace;
+      }
+      .inline-code {
+        background: #f1f5f9;
+        color: var(--danger);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.875rem;
+      }
+
+      /* Comment in code */
+      .cm {
+        color: #64748b;
+      }
+      .kw {
+        color: #93c5fd;
+      }
+      .st {
+        color: #86efac;
+      }
+      .nu {
+        color: #fca5a5;
+      }
+
+      /* Alert */
+      .alert {
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin: 12px 0;
+        font-size: 0.9rem;
+        border-left: 4px solid;
+      }
+      .alert-info {
+        background: #eff6ff;
+        border-color: var(--accent);
+      }
+      .alert-warning {
+        background: #fffbeb;
+        border-color: var(--warning);
+      }
+      .alert-danger {
+        background: #fef2f2;
+        border-color: var(--danger);
+      }
+      .alert-success {
+        background: #f0fdf4;
+        border-color: var(--success);
+      }
+
+      /* Table */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      th {
+        background: #f1f5f9;
+        text-align: left;
+        padding: 10px 12px;
+        font-weight: 600;
+        border: 1px solid var(--border);
+      }
+      td {
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        vertical-align: top;
+      }
+      tr:nth-child(even) td {
+        background: #f8fafc;
+      }
+
+      /* Step list */
+      .steps {
+        counter-reset: step;
+        list-style: none;
+        padding: 0;
+      }
+      .steps li {
+        counter-increment: step;
+        display: flex;
+        gap: 14px;
+        margin-bottom: 14px;
+        align-items: flex-start;
+      }
+      .steps li::before {
+        content: counter(step);
+        min-width: 28px;
+        height: 28px;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      /* Folder tree */
+      .tree {
+        background: var(--code-bg);
+        color: var(--code-text);
+        border-radius: 8px;
+        padding: 16px;
+        font-family: 'Consolas', monospace;
+        font-size: 0.875rem;
+      }
+      .tree .dir {
+        color: #93c5fd;
+      }
+      .tree .file {
+        color: #e2e8f0;
+      }
+      .tree .note {
+        color: #64748b;
+      }
+
+      /* Footer */
+      .footer {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.825rem;
+        padding: 32px;
+        border-top: 1px solid var(--border);
+        margin-top: 48px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ===================== HEADER ===================== -->
+    <div class="header">
+      <div class="header-icon">🔋</div>
+      <div>
+        <h1>HV Battery Backend — Maintenance Guide</h1>
+        <p>
+          PM2 Offline Deployment | localhost:4001 | SQL Server localhost:1433
+        </p>
+        <span class="badge">v1.0 · March 2026</span>
+      </div>
+    </div>
+
+    <div class="container">
+      <!-- ===================== TOC ===================== -->
+      <div class="toc">
+        <h2>📋 Daftar Isi</h2>
+        <ol>
+          <li><a href="#struktur">Struktur Project</a></li>
+          <li><a href="#pm2">Manajemen PM2</a></li>
+          <li><a href="#update">Cara Update Backend</a></li>
+          <li><a href="#env">Environment Variables</a></li>
+          <li><a href="#endpoints">API Endpoints</a></li>
+          <li><a href="#websocket">WebSocket Topics</a></li>
+          <li><a href="#troubleshoot">Troubleshooting</a></li>
+          <li><a href="#db">Database</a></li>
+        </ol>
+      </div>
+
+      <!-- ===================== 1. STRUKTUR ===================== -->
+      <div class="section" id="struktur">
+        <h2>📁 1. Struktur Project</h2>
+        <div class="card">
+          <div class="tree">
+            <span class="dir">backend/</span>
+            ├── <span class="dir">src/</span>
+            <span class="note"
+              >← Source code TypeScript (untuk development)</span
+            >
+            ├── <span class="dir">dist/</span>
+            <span class="note">← Compiled JS (hasil npm run build)</span> ├──
+            <span class="dir">backend-runtime/</span>
+            <span class="note"
+              >← ⭐ FOLDER DEPLOY ke production (PM2 jalankan dari sini)</span
+            >
+            │ ├── <span class="dir">node_modules/</span> │ ├──
+            <span class="dir">prisma/</span> │ ├──
+            <span class="dir">dist/</span> │ ├── .env │ └── package.json ├──
+            <span class="dir">prisma/</span>
+            <span class="note">← Schema database</span> ├──
+            <span class="dir">sql/</span>
+            <span class="note">← SQL scripts (stored procedures, dll)</span> ├──
+            <span class="dir">scripts/</span> │ ├──
+            <span class="dir">server/</span>
+            <span class="note">← dev-server, start-server, stop, restart</span>
+            │ ├── <span class="dir">docs/</span>
+            <span class="note">← generate-docs, pdf, docx</span> │ └──
+            <span class="dir">test/</span>
+            <span class="note">← test-endpoints.ps1</span> ├── .env
+            <span class="note">← Config development</span> ├── .env.production
+            <span class="note">← Config production</span> ├──
+            build-backend-bundle.js
+            <span class="note">← ⭐ Script untuk rebuild backend-runtime</span>
+            ├── nodemon.json ├── package.json └── tsconfig.json
+          </div>
+          <div class="alert alert-info" style="margin-top: 12px">
+            ℹ️
+            <strong
+              >PM2 menjalankan dari folder
+              <code class="inline-code">backend-runtime/</code></strong
+            >, bukan dari root project. Jika ada perubahan source code, harus
+            rebuild dulu dengan
+            <code class="inline-code">npm run bundle:be</code>.
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== 2. PM2 ===================== -->
+      <div class="section" id="pm2">
+        <h2>⚙️ 2. Manajemen PM2</h2>
+        <div class="card-grid">
+          <div class="card">
+            <h3>📊 Cek Status</h3>
+            <pre>
+pm2 list
+pm2 status backend</pre
+            >
+          </div>
+          <div class="card">
+            <h3>📋 Lihat Logs</h3>
+            <pre>
+pm2 logs backend
+pm2 logs backend --lines 50</pre
+            >
+          </div>
+          <div class="card">
+            <h3>🔄 Restart</h3>
+            <pre>pm2 restart backend</pre>
+          </div>
+          <div class="card">
+            <h3>⏹️ Stop / Start</h3>
+            <pre>
+pm2 stop backend
+pm2 start backend</pre
+            >
+          </div>
+        </div>
+
+        <h3>Jalankan Backend (pertama kali / manual)</h3>
+        <div class="card">
+          <pre><span class="cm"># Masuk ke folder runtime</span>
+cd D:\Adaptive\Web App\Backend\backend-runtime
+
+<span class="cm"># Start dengan PM2</span>
+pm2 start package.json --name backend
+
+<span class="cm"># Auto-start saat Windows boot</span>
+pm2 save
+pm2 startup</pre>
+        </div>
+
+        <h3>Monitoring Resource</h3>
+        <div class="card">
+          <pre>pm2 monit</pre>
+          <p style="margin-top: 8px; color: var(--muted); font-size: 0.875rem">
+            Menampilkan CPU, Memory, dan log real-time secara bersamaan.
+          </p>
+        </div>
+      </div>
+
+      <!-- ===================== 3. UPDATE ===================== -->
+      <div class="section" id="update">
+        <h2>🚀 3. Cara Update Backend</h2>
+        <div class="alert alert-warning">
+          ⚠️ Setiap ada perubahan kode di <code class="inline-code">src/</code>,
+          wajib rebuild bundle sebelum PM2 bisa menjalankan kode baru.
+        </div>
+
+        <div class="card">
+          <h3>Alur Update (di mesin developer)</h3>
+          <ol class="steps">
+            <li>Edit source code di <code class="inline-code">src/</code></li>
+            <li>
+              Jalankan build + bundle:
+              <pre>npm run bundle:be</pre>
+            </li>
+            <li>
+              Copy folder <code class="inline-code">backend-runtime/</code> ke
+              PC production (via USB / sharing)
+            </li>
+            <li>
+              Di PC production, restart PM2:
+              <pre>pm2 restart backend</pre>
+            </li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <h3>
+            Hanya update <code class="inline-code">.env</code> (tanpa rebuild
+            kode)
+          </h3>
+          <ol class="steps">
+            <li>
+              Edit file
+              <code class="inline-code">backend-runtime/.env</code> langsung di
+              PC production
+            </li>
+            <li>
+              Restart PM2:
+              <pre>pm2 restart backend</pre>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- ===================== 4. ENV ===================== -->
+      <div class="section" id="env">
+        <h2>🔧 4. Environment Variables</h2>
+        <div class="card">
+          <p style="margin-bottom: 12px">
+            File config: <code class="inline-code">backend-runtime/.env</code>
+          </p>
+          <table>
+            <tr>
+              <th>Variable</th>
+              <th>Nilai Default</th>
+              <th>Keterangan</th>
+            </tr>
+            <tr>
+              <td><code>PORT</code></td>
+              <td>4001</td>
+              <td>Port HTTP server</td>
+            </tr>
+            <tr>
+              <td><code>NODE_ENV</code></td>
+              <td>production</td>
+              <td>Mode aplikasi</td>
+            </tr>
+            <tr>
+              <td><code>MSSQL_SERVER</code></td>
+              <td>localhost</td>
+              <td>Alamat SQL Server</td>
+            </tr>
+            <tr>
+              <td><code>MSSQL_PORT</code></td>
+              <td>1433</td>
+              <td>Port SQL Server</td>
+            </tr>
+            <tr>
+              <td><code>MSSQL_DATABASE</code></td>
+              <td>-</td>
+              <td>Nama database</td>
+            </tr>
+            <tr>
+              <td><code>MSSQL_USER</code></td>
+              <td>-</td>
+              <td>Username SQL Server</td>
+            </tr>
+            <tr>
+              <td><code>MSSQL_PASSWORD</code></td>
+              <td>-</td>
+              <td>Password SQL Server</td>
+            </tr>
+            <tr>
+              <td><code>ALLOWED_ORIGINS</code></td>
+              <td>*</td>
+              <td>CORS whitelist (pisah koma), * = allow all</td>
+            </tr>
+            <tr>
+              <td><code>LOG_LEVEL</code></td>
+              <td>info</td>
+              <td>Level log: fatal/error/warn/info/debug</td>
+            </tr>
+            <tr>
+              <td><code>REDIS_ENABLED</code></td>
+              <td>false</td>
+              <td>Cache Redis (nonaktif)</td>
+            </tr>
+            <tr>
+              <td><code>SENTRY_ENABLED</code></td>
+              <td>false</td>
+              <td>Error tracking (nonaktif)</td>
+            </tr>
+            <tr>
+              <td><code>OTEL_ENABLED</code></td>
+              <td>false</td>
+              <td>OpenTelemetry (nonaktif)</td>
+            </tr>
+          </table>
+        </div>
+        <div class="alert alert-danger">
+          🔒 <strong>Jangan commit file <code>.env</code> ke Git!</strong> File
+          ini berisi password database.
+        </div>
+      </div>
+
+      <!-- ===================== 5. ENDPOINTS ===================== -->
+      <div class="section" id="endpoints">
+        <h2>🌐 5. API Endpoints</h2>
+        <div class="card">
+          <p style="margin-bottom: 12px">
+            Base URL:
+            <code class="inline-code">http://&lt;IP&gt;:4001</code>
+            &nbsp;|&nbsp; Swagger Docs:
+            <code class="inline-code">http://&lt;IP&gt;:4001/api-docs</code>
+          </p>
+          <table>
+            <tr>
+              <th>Method</th>
+              <th>Endpoint</th>
+              <th>Keterangan</th>
+              <th>Rate Limit</th>
+            </tr>
+            <tr>
+              <td><span class="tag tag-success">GET</span></td>
+              <td><code>/api/health</code></td>
+              <td>Health check server & DB</td>
+              <td><span class="tag tag-info">Tidak ada</span></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-success">GET</span></td>
+              <td><code>/api/sequences</code></td>
+              <td>Semua sequence battery</td>
+              <td><span class="tag tag-warning">100 req/min</span></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-warning">PUT</span></td>
+              <td><code>/api/sequences/:id/park</code></td>
+              <td>Mark sequence as parked</td>
+              <td><span class="tag tag-warning">100 req/min</span></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-success">GET</span></td>
+              <td><code>/api/print-history/search</code></td>
+              <td>Cari print history by date</td>
+              <td><span class="tag tag-warning">100 req/min</span></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-info">POST</span></td>
+              <td><code>/api/print-history/:id/reprint</code></td>
+              <td>Trigger re-print</td>
+              <td><span class="tag tag-warning">100 req/min</span></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-success">GET</span></td>
+              <td><code>/api/traceability/search</code></td>
+              <td>Cari data traceability</td>
+              <td><span class="tag tag-warning">100 req/min</span></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-info">POST</span></td>
+              <td><code>/api/logs</code></td>
+              <td>Terima log dari Frontend</td>
+              <td><span class="tag tag-info">Tidak ada</span></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-success">GET</span></td>
+              <td><code>/api-docs</code></td>
+              <td>Swagger UI documentation</td>
+              <td><span class="tag tag-info">Tidak ada</span></td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="card">
+          <h3>Test Health Check</h3>
+          <pre><span class="cm"># PowerShell</span>
+Invoke-WebRequest -Uri http://localhost:4001/api/health | Select-Object StatusCode
+
+<span class="cm"># CMD / curl</span>
+curl http://localhost:4001/api/health</pre>
+        </div>
+      </div>
+
+      <!-- ===================== 6. WEBSOCKET ===================== -->
+      <div class="section" id="websocket">
+        <h2>🔌 6. WebSocket</h2>
+        <div class="card">
+          <p>
+            WebSocket URL: <code class="inline-code">ws://&lt;IP&gt;:4001</code>
+          </p>
+          <p style="margin: 8px 0; color: var(--muted); font-size: 0.875rem">
+            Transport: <strong>websocket only</strong> (polling dinonaktifkan)
+          </p>
+
+          <h3 style="margin-top: 16px">Topics yang tersedia</h3>
+          <table>
+            <tr>
+              <th>Topic (subscribe)</th>
+              <th>Event (listen)</th>
+              <th>Data Source</th>
+            </tr>
+            <tr>
+              <td><code>sequences</code></td>
+              <td><code>sequences:update</code></td>
+              <td>TB_R_SEQUENCE_BATTERY</td>
+            </tr>
+            <tr>
+              <td><code>summary</code></td>
+              <td><code>summary:update</code></td>
+              <td>TB_R_ANDON_GLOBAL</td>
+            </tr>
+            <tr>
+              <td><code>calls</code></td>
+              <td><code>calls:update</code></td>
+              <td>TB_R_ANDON_CALL</td>
+            </tr>
+            <tr>
+              <td><code>processes</code></td>
+              <td><code>processes:update</code></td>
+              <td>TB_R_POS_STATUS</td>
+            </tr>
+            <tr>
+              <td><code>downtime</code></td>
+              <td><code>downtime:update</code></td>
+              <td>TB_R_DOWNTIME_LOG</td>
+            </tr>
+          </table>
+
+          <h3 style="margin-top: 16px">Cara pakai (dari Frontend)</h3>
+          <pre><span class="kw">const</span> socket = io(<span class="st">'http://192.168.1.167:4001'</span>, {
+  transports: [<span class="st">'websocket'</span>],
+})
+
+<span class="cm">// Subscribe ke topic</span>
+socket.on(<span class="st">'connect'</span>, () => {
+  socket.emit(<span class="st">'subscribe'</span>, <span class="st">'summary'</span>)
+})
+
+<span class="cm">// Terima data real-time</span>
+socket.on(<span class="st">'summary:update'</span>, (data) => {
+  console.log(data)
+})
+
+<span class="cm">// Force refresh manual</span>
+socket.emit(<span class="st">'sync'</span>, <span class="st">'summary'</span>)</pre>
+        </div>
+      </div>
+
+      <!-- ===================== 7. TROUBLESHOOT ===================== -->
+      <div class="section" id="troubleshoot">
+        <h2>🔍 7. Troubleshooting</h2>
+
+        <div class="card">
+          <h3>❌ Backend tidak bisa connect ke database</h3>
+          <div class="alert alert-warning">
+            Log: <code>ESOCKET</code> atau
+            <code>Could not connect (sequence)</code>
+          </div>
+          <ol class="steps">
+            <li>
+              Pastikan SQL Server service sedang berjalan<br />
+              <pre>services.msc → SQL Server (MSSQLSERVER) → Start</pre>
+            </li>
+            <li>
+              Cek konfigurasi di
+              <code class="inline-code">backend-runtime/.env</code> — pastikan
+              MSSQL_SERVER, USER, PASSWORD benar
+            </li>
+            <li>
+              Test koneksi manual:
+              <pre>sqlcmd -S localhost -U sa -P [password] -Q "SELECT 1"</pre>
+            </li>
+            <li>
+              Backend akan auto-retry 5x dengan exponential backoff (1s → 2s →
+              4s → 8s → 16s)
+            </li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <h3>❌ Port 4001 sudah dipakai</h3>
+          <div class="alert alert-warning">
+            Log: <code>EADDRINUSE</code> — Port still in use
+          </div>
+          <pre><span class="cm"># Cari proses di port 4001</span>
+netstat -ano | findstr :4001
+
+<span class="cm"># Kill proses (ganti XXXX dengan PID)</span>
+taskkill /PID XXXX /F
+
+<span class="cm"># Atau restart PM2</span>
+pm2 restart backend</pre>
+        </div>
+
+        <div class="card">
+          <h3>❌ Frontend gagal connect WebSocket</h3>
+          <ol class="steps">
+            <li>
+              Pastikan URL WebSocket benar:
+              <code class="inline-code">ws://&lt;IP-BE&gt;:4001</code> bukan
+              port FE
+            </li>
+            <li>
+              Pastikan transport:
+              <code class="inline-code">['websocket']</code> (bukan polling)
+            </li>
+            <li>
+              Cek CORS — tambahkan IP FE ke
+              <code class="inline-code">ALLOWED_ORIGINS</code> di
+              <code>.env</code>
+            </li>
+            <li>Pastikan firewall Windows tidak block port 4001</li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <h3>❌ Data di Frontend tidak update setelah reconnect</h3>
+          <div class="alert alert-info">
+            Pastikan FE melakukan re-subscribe setelah reconnect
+          </div>
+          <pre><span class="cm">// Di FE — pastikan subscribe ulang saat reconnect:</span>
+socket.on(<span class="st">'connect'</span>, () => {
+  socket.emit(<span class="st">'subscribe'</span>, <span class="st">'summary'</span>)
+  socket.emit(<span class="st">'subscribe'</span>, <span class="st">'downtime'</span>)
+  <span class="cm">// atau force sync:</span>
+  socket.emit(<span class="st">'sync'</span>, <span class="st">'summary'</span>)
+})</pre>
+        </div>
+
+        <div class="card">
+          <h3>❌ PM2 tidak auto-start setelah PC restart</h3>
+          <pre><span class="cm"># Jalankan sekali saat setup awal</span>
+pm2 save
+pm2 startup
+
+<span class="cm"># Cek apakah sudah tersimpan</span>
+pm2 list</pre>
+        </div>
+
+        <div class="card">
+          <h3>❌ Swagger tidak bisa diakses</h3>
+          <ol class="steps">
+            <li>
+              Pastikan backend running:
+              <code class="inline-code">pm2 status backend</code>
+            </li>
+            <li>
+              Buka di browser:
+              <code class="inline-code">http://localhost:4001/api-docs</code>
+            </li>
+            <li>
+              Jika dari PC lain:
+              <code class="inline-code"
+                >http://192.168.1.167:4001/api-docs</code
+              >
+            </li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <h3>📋 Checklist Logs Cepat</h3>
+          <table>
+            <tr>
+              <th>Log PM2</th>
+              <th>Artinya</th>
+              <th>Status</th>
+            </tr>
+            <tr>
+              <td><code>✅ [MSSQL] Connected</code></td>
+              <td>Database berhasil connect</td>
+              <td><span class="tag tag-success">OK</span></td>
+            </tr>
+            <tr>
+              <td><code>✅ Client connected: xxx</code></td>
+              <td>Frontend berhasil connect WebSocket</td>
+              <td><span class="tag tag-success">OK</span></td>
+            </tr>
+            <tr>
+              <td><code>📥 Client xxx subscribed to: summary</code></td>
+              <td>FE subscribe topic, polling mulai</td>
+              <td><span class="tag tag-success">OK</span></td>
+            </tr>
+            <tr>
+              <td><code>📢 [WS] Broadcast ... to room</code></td>
+              <td>Ada perubahan data, FE menerima update</td>
+              <td><span class="tag tag-success">OK</span></td>
+            </tr>
+            <tr>
+              <td><code>⚠️ [MSSQL] Connection attempt 1/5</code></td>
+              <td>DB sedang retry connect</td>
+              <td><span class="tag tag-warning">WAIT</span></td>
+            </tr>
+            <tr>
+              <td><code>❌ [MSSQL] Failed to connect</code></td>
+              <td>DB gagal connect setelah 5x retry</td>
+              <td><span class="tag tag-danger">ERROR</span></td>
+            </tr>
+            <tr>
+              <td><code>❌ Client disconnected: xxx</code></td>
+              <td>FE disconnect dari WebSocket</td>
+              <td><span class="tag tag-warning">INFO</span></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===================== 8. DATABASE ===================== -->
+      <div class="section" id="db">
+        <h2>🗄️ 8. Database</h2>
+        <div class="card-grid">
+          <div class="card">
+            <h3>Koneksi</h3>
+            <table>
+              <tr>
+                <th>Parameter</th>
+                <th>Nilai</th>
+              </tr>
+              <tr>
+                <td>Server</td>
+                <td>localhost</td>
+              </tr>
+              <tr>
+                <td>Port</td>
+                <td>1433</td>
+              </tr>
+              <tr>
+                <td>Database</td>
+                <td>lihat .env</td>
+              </tr>
+              <tr>
+                <td>Auth</td>
+                <td>SQL Server Auth</td>
+              </tr>
+            </table>
+          </div>
+          <div class="card">
+            <h3>Prisma Commands</h3>
+            <pre><span class="cm"># Pull schema dari DB</span>
+npm run db:pull
+
+<span class="cm"># Generate Prisma Client</span>
+npm run generate
+
+<span class="cm"># Buka Prisma Studio</span>
+npm run studio</pre>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Tabel Penting</h3>
+          <table>
+            <tr>
+              <th>Tabel</th>
+              <th>Fungsi</th>
+              <th>Change Tracking</th>
+            </tr>
+            <tr>
+              <td><code>TB_R_ANDON_GLOBAL</code></td>
+              <td>Andon summary data</td>
+              <td><span class="tag tag-success">Aktif</span></td>
+            </tr>
+            <tr>
+              <td><code>TB_R_ANDON_CALL</code></td>
+              <td>Andon call data</td>
+              <td><span class="tag tag-success">Aktif</span></td>
+            </tr>
+            <tr>
+              <td><code>TB_R_POS_STATUS</code></td>
+              <td>Status tiap POS</td>
+              <td><span class="tag tag-success">Aktif</span></td>
+            </tr>
+            <tr>
+              <td><code>TB_R_DOWNTIME_LOG</code></td>
+              <td>Downtime records</td>
+              <td><span class="tag tag-success">Aktif</span></td>
+            </tr>
+            <tr>
+              <td><code>TB_R_SEQUENCE_BATTERY</code></td>
+              <td>Sequence produksi</td>
+              <td><span class="tag tag-success">Aktif</span></td>
+            </tr>
+            <tr>
+              <td><code>TB_H_PRINT_LOG</code></td>
+              <td>Riwayat print QR</td>
+              <td><span class="tag tag-warning">Polling</span></td>
+            </tr>
+            <tr>
+              <td><code>CDC_CURSOR</code></td>
+              <td>Tracking versi change</td>
+              <td>—</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="card">
+          <h3>Stored Procedure</h3>
+          <pre><span class="cm">-- Refresh view traceability (jalankan saat ada perubahan struktur tabel)</span>
+EXEC sp_RefreshBatteryTraceabilityView;
+
+<span class="cm">-- Query view traceability</span>
+SELECT * FROM VW_BATTERY_TRACEABILITY_COMPLETE;</pre>
+          <p style="margin-top: 8px; color: var(--muted); font-size: 0.875rem">
+            Script SP ada di:
+            <code class="inline-code"
+              >sql/sp_refresh_battery_traceability_view.sql</code
+            >
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== FOOTER ===================== -->
+    <div class="footer">
+      HV Battery Production Information System — Backend Maintenance Guide<br />
+      Last updated: March 2026
+    </div>
+  </body>
+</html>
