@@ -1,4 +1,6 @@
+import { PrismaMssql } from '@prisma/adapter-mssql'
 import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const adapter = new PrismaMssql(process.env.DATABASE_URL!)
+const prisma = new PrismaClient({ adapter })
 export default prisma

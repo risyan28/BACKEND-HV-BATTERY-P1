@@ -5,7 +5,6 @@ generator client {
 
 datasource db {
   provider = "sqlserver"
-  url      = env("DATABASE_URL")
 }
 
 model CDC_CURSOR {
@@ -60,6 +59,8 @@ model TB_H_PRINT_LOG {
   PROD_DATE         DateTime? @db.Date
   FSHIFT            String?   @db.VarChar(1)
   DATETIME_MODIFIED DateTime? @db.DateTime
+
+  @@index([PRINT_QRCODE, DATETIME_MODIFIED(sort: Desc)], map: "IX_PRINT_LOG_QRCODE_DATE")
 }
 
 /// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
@@ -222,6 +223,8 @@ model TB_H_TIGHTENING_RESULT {
   CreationTime       DateTime? @db.DateTime
   TighteningSequence Int?
   ExtractedAt        DateTime? @default(now(), map: "DF__TB_H_TIGH__Extra__6497E884") @db.DateTime
+
+  @@index([LabelPackID, StationName, TighteningSequence, CreationTime(sort: Desc)], map: "IX_TIGHTENING_PACK_STATION_SEQ_TIME")
 }
 
 model TB_H_TRACEABILITY_INSPECTION_MACHINE {
@@ -329,6 +332,7 @@ model TB_H_TRACEABILITY_INSPECTION_MACHINE {
   CREATED_AT                                                                                  DateTime? @default(now(), map: "DF__TB_H_TRAC__CREAT__73DA2C14") @db.DateTime
 
   @@index([TRACEABILITY_TIMESTAMP(sort: Desc)], map: "IX_MACHINE_TIMESTAMP")
+  @@index([Pack_basic_information_Battery_pack_No, CREATED_AT(sort: Desc)], map: "IX_INSP_MACHINE_PACK_DATE")
 }
 
 model TB_H_TRACEABILITY_MODULE_INSPECTION {
@@ -569,6 +573,8 @@ model TB_H_TRACEABILITY_MODULE_INSPECTION {
   CREATED_AT                        DateTime? @default(now(), map: "DF__TB_H_TRAC__CREAT__77AABCF8") @db.DateTime
 
   @@index([TRACEABILITY_TIMESTAMP(sort: Desc)], map: "IX_MODULE_TIMESTAMP")
+  @@index([Fr_stack_ID, CREATED_AT(sort: Desc)], map: "IX_MODULE_INSP_FR_DATE")
+  @@index([Rr_stack_ID, CREATED_AT(sort: Desc)], map: "IX_MODULE_INSP_RR_DATE")
 }
 
 model TB_H_POS_FINAL_JUDGEMENT {
@@ -586,6 +592,8 @@ model TB_H_POS_FINAL_JUDGEMENT {
   JUDGE_LABEL_CAM    String?   @db.VarChar(10)
   OVERALL_JUDGEMENT  String?   @db.VarChar(10)
   CREATED_AT         DateTime? @default(now(), map: "DF__TB_H_POS___CREAT__0D99FE17") @db.DateTime
+
+  @@index([PACK_ID, CREATED_AT(sort: Desc)], map: "IX_FINAL_JUDGEMENT_PACK_DATE")
 }
 
 model TB_H_POS_UNLOADING {
@@ -597,13 +605,16 @@ model TB_H_POS_UNLOADING {
   LIFETIME_MODULE2 String?   @db.NVarChar(10)
   JUDGEMENT_VALUE  String?   @db.NVarChar(2)
   CREATED_AT       DateTime? @default(now(), map: "DF__TB_R_POS___CREAT__72E607DB") @db.DateTime
+
+  @@index([PACK_ID, CREATED_AT(sort: Desc)], map: "IX_POS_UNLOADING_PACK_DATE")
 }
 
-model tb_melody {
-  fid     Int       @id(map: "PK_tb_melody") @default(autoincrement())
-  fline   String?   @db.VarChar(50)
-  fname   String?   @db.VarChar(50)
-  fmelody String?   @db.VarChar(50)
-  value   String?   @db.VarChar(2)
-  fupdate DateTime? @db.DateTime
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model TB_M_TIGHTENING_NAME {
+  FID                Int     @id(map: "PK_TB_M_TIGHTENING_NAME") @default(autoincrement())
+  StationName        String? @db.VarChar(20)
+  TighteningName     String? @db.VarChar(100)
+  TighteningSequence Int?
+
+  @@ignore
 }

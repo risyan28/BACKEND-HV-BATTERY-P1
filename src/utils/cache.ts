@@ -12,14 +12,31 @@ import { loggers } from '@/utils/logger'
  * - Type-safe
  */
 
+interface MemoryCacheEntry {
+  data: unknown
+  expiresAt: number
+}
+
 export class CacheService {
   private redis = getRedisClient()
+  private memoryCache = new Map<string, MemoryCacheEntry>()
 
   /**
    * Get cached value
    */
   async get<T>(key: string): Promise<T | null> {
-    if (!this.redis) return null
+    // In-memory fallback
+    if (!this.redis) {
+      const entry = this.memoryCache.get(key)
+      if (entry) {
+        if (Date.now() < entry.expiresAt) {
+          loggers.cache.debug({ key }, 'Cache HIT (memory)')
+          return entry.data as T
+        }
+        this.memoryCache.delete(key)
+      }
+      return null
+    }
 
     try {
       const cached = await this.redis.get(key)
@@ -38,7 +55,13 @@ export class CacheService {
    * Set cached value with optional TTL (in seconds)
    */
   async set<T>(key: string, value: T, ttl?: number): Promise<boolean> {
-    if (!this.redis) return false
+    // In-memory fallback
+    if (!this.redis) {
+      const expiresAt = Date.now() + (ttl ?? 60) * 1000
+      this.memoryCache.set(key, { data: value, expiresAt })
+      loggers.cache.debug({ key, ttl }, 'Cache SET (memory)')
+      return true
+    }
 
     try {
       const serialized = JSON.stringify(value)

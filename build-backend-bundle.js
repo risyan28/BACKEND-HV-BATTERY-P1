@@ -74,6 +74,14 @@ try {
   console.log('   - Copying package.json')
   fs.copyFileSync(PACKAGE_JSON, path.join(TARGET, 'package.json'))
 
+  const PRISMA_CONFIG = path.join(ROOT, 'prisma.config.ts')
+  if (fs.existsSync(PRISMA_CONFIG)) {
+    console.log('   - Copying prisma.config.ts')
+    fs.copyFileSync(PRISMA_CONFIG, path.join(TARGET, 'prisma.config.ts'))
+  } else {
+    console.warn('   ⚠️ prisma.config.ts not found, skipping.')
+  }
+
   if (fs.existsSync(ENV_FILE)) {
     console.log('   - Copying .env')
     fs.copyFileSync(ENV_FILE, path.join(TARGET, '.env'))
