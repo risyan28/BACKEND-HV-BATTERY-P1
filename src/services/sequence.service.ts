@@ -2,24 +2,8 @@ import prisma from '@/prisma'
 import { formatDate, formatDateTime } from '@/utils/date'
 import { log } from 'console'
 import { SEQUENCE_STATUS, QUERY_LIMITS } from '@/config/constants'
-import { cache } from '@/utils/cache'
 import { loggers } from '@/utils/logger'
-
-/**
- * Cache configuration for sequences
- */
-const CACHE_CONFIG = {
-  KEY: 'sequences:all',
-  TTL: 30, // 30 seconds - short TTL because of frequent polling
-}
-
-/**
- * Helper: Invalidate sequences cache
- */
-const invalidateCache = async () => {
-  await cache.del(CACHE_CONFIG.KEY)
-  loggers.cache.debug({ key: CACHE_CONFIG.KEY }, 'Cache invalidated')
-}
+import type { SequenceStrategy } from '@/utils/strategyStore'
 
 /**
  * FSTATUS Mapping (from constants):
@@ -30,102 +14,144 @@ const invalidateCache = async () => {
  */
 export const sequenceService = {
   /**
-   * ✅ PHASE 3: Redis cache implemented
-   * Cache key: sequences:all
-   * TTL: 30 seconds
-   * Invalidated on: all mutations
+   * Always fetch latest sequence snapshot from DB.
+   * No Redis cache here to keep operator UI truly realtime.
    */
-  async getSequences() {
-    return cache.getOrSet(
-      CACHE_CONFIG.KEY,
-      async () => {
-        loggers.db.debug('Fetching sequences from database (cache miss)')
+  async getSequences(options?: { fresh?: boolean }) {
+    if (options?.fresh) {
+      loggers.db.debug('Fresh sequence fetch requested')
+    }
 
-        const [current, queue, completed, parked] = await prisma.$transaction([
-          // 1. Current (top 1)
-          prisma.tB_R_SEQUENCE_BATTERY.findFirst({
-            where: {
-              OR: [
-                { FSTATUS: SEQUENCE_STATUS.QUEUE },
-                {
-                  FSTATUS: SEQUENCE_STATUS.PRINTED,
-                  FTIME_PRINTED: { not: null },
-                },
-              ],
-            },
-            orderBy: { FID_ADJUST: 'asc' },
-          }),
+    loggers.db.debug('Fetching sequences from database')
 
-          // 2. Queue (limit from constants, exclude current nanti)
-          prisma.tB_R_SEQUENCE_BATTERY.findMany({
-            where: { FSTATUS: SEQUENCE_STATUS.QUEUE },
-            orderBy: { FID_ADJUST: 'asc' },
-            take: QUERY_LIMITS.MAX_QUEUE_SIZE,
-          }),
-
-          // 3. Completed (limit from constants)
-          prisma.tB_R_SEQUENCE_BATTERY.findMany({
-            where: { FSTATUS: SEQUENCE_STATUS.COMPLETE },
-            orderBy: { FID_ADJUST: 'asc' },
-            take: QUERY_LIMITS.MAX_COMPLETED_SIZE,
-          }),
-
-          // 4. Parked (all)
-          prisma.tB_R_SEQUENCE_BATTERY.findMany({
-            where: { FSTATUS: SEQUENCE_STATUS.PARKED },
-            orderBy: { FID_ADJUST: 'asc' },
-          }),
-        ])
-
-        const mapData = (s: NonNullable<typeof current>) => ({
-          ...s,
-          FSEQ_DATE: formatDate(s.FSEQ_DATE),
-          FTIME_RECEIVED: formatDateTime(s.FTIME_RECEIVED),
-          FTIME_PRINTED: formatDateTime(s.FTIME_PRINTED),
-          FTIME_COMPLETED: formatDateTime(s.FTIME_COMPLETED),
-          FALC_DATA:
-            s.FALC_DATA && s.FALC_DATA.trim() !== '' ? 'ALC' : 'INJECT MANUAL',
-        })
-
-        // Filter queue: exclude current jika ada
-        const filteredQueue = current
-          ? queue.filter((s: { FID: number }) => s.FID !== current.FID)
-          : queue
-
-        // Log TIME RECEIVED ALC and TIME PRINT LABEL for current sequence
-        if (current) {
-          loggers.db.debug(
+    const [current, queue, completed, parked] = await prisma.$transaction([
+      // 1. Current (top 1)
+      prisma.tB_R_SEQUENCE_BATTERY.findFirst({
+        where: {
+          OR: [
+            { FSTATUS: SEQUENCE_STATUS.QUEUE },
             {
-              timeReceivedALC: formatDateTime(current.FTIME_RECEIVED),
-              fid: current.FID,
-              seqNo: current.FSEQ_NO,
+              FSTATUS: SEQUENCE_STATUS.PRINTED,
+              FTIME_PRINTED: { not: null },
             },
-            'TIME RECEIVED ALC',
-          )
-          loggers.db.debug(
-            {
-              timePrintLabel: formatDateTime(current.FTIME_PRINTED),
-              fid: current.FID,
-              seqNo: current.FSEQ_NO,
-            },
-            'TIME PRINT LABEL',
-          )
-        }
+          ],
+        },
+        orderBy: { FID_ADJUST: 'asc' },
+      }),
 
-        return {
-          current: current ? mapData(current) : null,
-          queue: filteredQueue.map(mapData),
-          completed: completed.map(mapData),
-          parked: parked.map(mapData),
-        }
-      },
-      CACHE_CONFIG.TTL,
-    )
+      // 2. Queue (limit from constants, exclude current nanti)
+      prisma.tB_R_SEQUENCE_BATTERY.findMany({
+        where: { FSTATUS: SEQUENCE_STATUS.QUEUE },
+        orderBy: { FID_ADJUST: 'asc' },
+        take: QUERY_LIMITS.MAX_QUEUE_SIZE,
+      }),
+
+      // 3. Completed (limit from constants)
+      prisma.tB_R_SEQUENCE_BATTERY.findMany({
+        where: { FSTATUS: SEQUENCE_STATUS.COMPLETE },
+        orderBy: { FID_ADJUST: 'asc' },
+        take: QUERY_LIMITS.MAX_COMPLETED_SIZE,
+      }),
+
+      // 4. Parked (all)
+      prisma.tB_R_SEQUENCE_BATTERY.findMany({
+        where: { FSTATUS: SEQUENCE_STATUS.PARKED },
+        orderBy: { FID_ADJUST: 'asc' },
+      }),
+    ])
+
+    const mappingRows = await prisma.$queryRaw<
+      Array<{
+        FTYPE_BATTERY: string | null
+        FMODEL_BATTERY: string | null
+        ORDER_TYPE: string | null
+      }>
+    >`
+      SELECT
+        FTYPE_BATTERY,
+        FMODEL_BATTERY,
+        ORDER_TYPE
+      FROM TB_M_BATTERY_MAPPING
+      WHERE ORDER_TYPE IS NOT NULL
+        AND LTRIM(RTRIM(ORDER_TYPE)) <> ''
+    `
+
+    const orderTypeMap = new Map<string, string>()
+    for (const row of mappingRows) {
+      if (!row.FTYPE_BATTERY || !row.FMODEL_BATTERY || !row.ORDER_TYPE) continue
+      orderTypeMap.set(
+        `${row.FTYPE_BATTERY}|${row.FMODEL_BATTERY}`,
+        row.ORDER_TYPE,
+      )
+    }
+
+    const mapData = (s: NonNullable<typeof current>) => ({
+      ...s,
+      ORDER_TYPE:
+        (s as any).ORDER_TYPE && String((s as any).ORDER_TYPE).trim() !== ''
+          ? (s as any).ORDER_TYPE
+          : (orderTypeMap.get(`${s.FTYPE_BATTERY}|${s.FMODEL_BATTERY}`) ??
+            null),
+      FSEQ_DATE: formatDate(s.FSEQ_DATE),
+      FTIME_RECEIVED: formatDateTime(s.FTIME_RECEIVED),
+      FTIME_PRINTED: formatDateTime(s.FTIME_PRINTED),
+      FTIME_COMPLETED: formatDateTime(s.FTIME_COMPLETED),
+      FALC_DATA:
+        s.FALC_DATA && s.FALC_DATA.trim() !== '' ? 'ALC' : 'INJECT MANUAL',
+    })
+
+    // Filter queue: exclude current jika ada
+    const filteredQueue = current
+      ? queue.filter((s: { FID: number }) => s.FID !== current.FID)
+      : queue
+
+    // Log TIME RECEIVED ALC and TIME PRINT LABEL for current sequence
+    if (current) {
+      loggers.db.debug(
+        {
+          timeReceivedALC: formatDateTime(current.FTIME_RECEIVED),
+          fid: current.FID,
+          seqNo: current.FSEQ_NO,
+        },
+        'TIME RECEIVED ALC',
+      )
+      loggers.db.debug(
+        {
+          timePrintLabel: formatDateTime(current.FTIME_PRINTED),
+          fid: current.FID,
+          seqNo: current.FSEQ_NO,
+        },
+        'TIME PRINT LABEL',
+      )
+    }
+
+    return {
+      current: current ? mapData(current) : null,
+      queue: filteredQueue.map(mapData),
+      completed: completed.map(mapData),
+      parked: parked.map(mapData),
+    }
+  },
+
+  async applyStrategyToDb(strategy: SequenceStrategy) {
+    await prisma.$executeRaw`
+      EXEC dbo.SP_APPLY_SEQUENCE_STRATEGY
+        @Mode = ${strategy.mode},
+        @PriorityType = ${strategy.priorityType},
+        @RatioPrimary = ${strategy.ratioPrimary},
+        @RatioSecondary = ${strategy.ratioSecondary},
+        @RatioTertiary = ${strategy.ratioTertiary},
+        @RatioAssy = ${strategy.ratioValues.ASSY},
+        @RatioCkd = ${strategy.ratioValues.CKD},
+        @RatioServicePart = ${strategy.ratioValues['SERVICE PART']}
+    `
   },
 
   async createSequence(data: {
     FTYPE_BATTERY: string
     FMODEL_BATTERY: string
+    ORDER_TYPE: 'ASSY' | 'CKD' | 'SERVICE PART'
+    QTY: number
   }) {
     const target = await prisma.tB_R_TARGET_PROD.findFirst({
       where: {
@@ -138,11 +164,14 @@ export const sequenceService = {
     if (!target) throw new Error('Target production not found')
 
     // ✅ Using $executeRaw instead of $executeRawUnsafe to prevent SQL injection
-    const newTargetValue = (target.FTARGET ?? 0) + 1
+    const qty = Number.isFinite(data.QTY) ? Math.max(1, data.QTY) : 1
+    const orderTypeLabel = `INJECT MAN - ${data.ORDER_TYPE}`
+    const newTargetValue = (target.FTARGET ?? 0) + qty
     await prisma.$executeRaw`
       UPDATE TB_R_TARGET_PROD
       SET 
         FTARGET = ${newTargetValue},
+        ORDER_TYPE = ${orderTypeLabel},
         FSEQ_K0 = NULL,
         FBODY_NO_K0 = NULL,
         FID_RECEIVER = NULL,
@@ -151,10 +180,7 @@ export const sequenceService = {
       WHERE FID = ${target.FID}
     `
 
-    // ✅ Invalidate cache after mutation
-    await invalidateCache()
-
-    return this.getSequences()
+    return this.getSequences({ fresh: true })
   },
 
   async updateSequence(fid: number, updates: any) {
@@ -162,9 +188,6 @@ export const sequenceService = {
       where: { FID: fid },
       data: updates,
     })
-
-    // ✅ Invalidate cache after mutation
-    await invalidateCache()
 
     return result
   },
@@ -185,7 +208,7 @@ export const sequenceService = {
       },
       orderBy: { FID_ADJUST: 'desc' },
     })
-    if (!prev) return this.getSequences() // udah paling atas
+    if (!prev) return this.getSequences({ fresh: true }) // udah paling atas
 
     await prisma.$transaction([
       prisma.tB_R_SEQUENCE_BATTERY.update({
@@ -198,10 +221,7 @@ export const sequenceService = {
       }),
     ])
 
-    // ✅ Invalidate cache after mutation
-    await invalidateCache()
-
-    return this.getSequences()
+    return this.getSequences({ fresh: true })
   },
 
   async moveSequenceDown(fid: number) {
@@ -219,7 +239,7 @@ export const sequenceService = {
       },
       orderBy: { FID_ADJUST: 'asc' },
     })
-    if (!next) return this.getSequences() // udah paling bawah
+    if (!next) return this.getSequences({ fresh: true }) // udah paling bawah
 
     await prisma.$transaction([
       prisma.tB_R_SEQUENCE_BATTERY.update({
@@ -232,10 +252,7 @@ export const sequenceService = {
       }),
     ])
 
-    // ✅ Invalidate cache after mutation
-    await invalidateCache()
-
-    return this.getSequences()
+    return this.getSequences({ fresh: true })
   },
 
   async parkSequence(fid: number) {
@@ -244,10 +261,7 @@ export const sequenceService = {
       data: { FSTATUS: SEQUENCE_STATUS.PARKED },
     })
 
-    // ✅ Invalidate cache after mutation
-    await invalidateCache()
-
-    return this.getSequences()
+    return this.getSequences({ fresh: true })
   },
 
   async insertSequence(
@@ -323,11 +337,8 @@ export const sequenceService = {
       },
     })
 
-    // ✅ Invalidate cache after mutation
-    await invalidateCache()
-
     // 🔹 Return queue terbaru
-    return this.getSequences()
+    return this.getSequences({ fresh: true })
   },
 
   async removeFromParked(fid: number) {
@@ -335,9 +346,6 @@ export const sequenceService = {
       where: { FID: fid },
     })
 
-    // ✅ Invalidate cache after mutation
-    await invalidateCache()
-
-    return this.getSequences()
+    return this.getSequences({ fresh: true })
   },
 }

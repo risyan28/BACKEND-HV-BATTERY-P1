@@ -8,6 +8,27 @@ let io: Server | null = null
 // Simpan instance polling aktif per topik
 const activePollings = new Map<string, { stop: () => void }>()
 
+/**
+ * Emit a fresh snapshot to ALL clients in a room immediately.
+ * Called by the strategy controller after a strategy change.
+ */
+export async function broadcastSnapshot(room: string): Promise<void> {
+  if (!io) return
+  const config = topicConfig.get(room)
+  if (!config) return
+  try {
+    const snapshot = await config.pollingModule.pollingLogic(
+      await getConnection(),
+    )
+    io.to(room).emit(config.eventName, snapshot)
+    console.log(`📡 [WS] Strategy broadcast sent to room: ${room}`)
+  } catch (err: any) {
+    console.error(
+      `⚠️ [WS] broadcastSnapshot failed for ${room}: ${err.message}`,
+    )
+  }
+}
+
 // Mapping topik ke konfigurasi
 const topicConfig = new Map<string, { eventName: string; pollingModule: any }>()
 

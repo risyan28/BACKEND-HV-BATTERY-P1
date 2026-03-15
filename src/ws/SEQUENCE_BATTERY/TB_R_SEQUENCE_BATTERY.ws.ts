@@ -11,6 +11,7 @@ const CACHE_CONFIG = { KEY: 'sequences:all' }
 function mapSequence(s: any) {
   return {
     ...s,
+    ORDER_TYPE: s.ORDER_TYPE_RESOLVED ?? s.ORDER_TYPE ?? null,
     FSEQ_DATE: formatDate(s.FSEQ_DATE),
     FTIME_RECEIVED: formatDateTime(s.FTIME_RECEIVED),
     FTIME_PRINTED: formatDateTime(s.FTIME_PRINTED),
@@ -36,10 +37,23 @@ export const sequencePolling = createCTPolling({
   pollingLogic: async (pool) => {
     // ❗ snapshot logic fleksibel, bisa disesuaikan tabel lain
     const currentRes = await pool.query(`
-      SELECT TOP 1 * 
-      FROM TB_R_SEQUENCE_BATTERY
-      WHERE FSTATUS = 0 OR (FSTATUS = 1 AND FTIME_PRINTED IS NOT NULL)
-      ORDER BY FID_ADJUST ASC
+      SELECT TOP 1
+        s.*,
+        COALESCE(
+          NULLIF(LTRIM(RTRIM(s.ORDER_TYPE)), ''),
+          map_ot.ORDER_TYPE
+        ) AS ORDER_TYPE_RESOLVED
+      FROM TB_R_SEQUENCE_BATTERY s
+      OUTER APPLY (
+        SELECT TOP 1 m.ORDER_TYPE
+        FROM TB_M_BATTERY_MAPPING m
+        WHERE m.FTYPE_BATTERY = s.FTYPE_BATTERY
+          AND m.FMODEL_BATTERY = s.FMODEL_BATTERY
+          AND m.ORDER_TYPE IS NOT NULL
+          AND LTRIM(RTRIM(m.ORDER_TYPE)) <> ''
+      ) map_ot
+      WHERE s.FSTATUS = 0 OR (s.FSTATUS = 1 AND s.FTIME_PRINTED IS NOT NULL)
+      ORDER BY s.FID_ADJUST ASC
     `)
     const current = currentRes.recordset[0]
       ? mapSequence(currentRes.recordset[0])
@@ -49,24 +63,63 @@ export const sequencePolling = createCTPolling({
     const currentFID = current?.FID ?? -1
     const queueRes = await pool.request().input('currentFID', currentFID)
       .query(`
-        SELECT TOP 500 * 
-        FROM TB_R_SEQUENCE_BATTERY
-        WHERE FSTATUS = 0 AND FID <> @currentFID
-        ORDER BY FID_ADJUST ASC
+        SELECT TOP 500
+          s.*,
+          COALESCE(
+            NULLIF(LTRIM(RTRIM(s.ORDER_TYPE)), ''),
+            map_ot.ORDER_TYPE
+          ) AS ORDER_TYPE_RESOLVED
+        FROM TB_R_SEQUENCE_BATTERY s
+        OUTER APPLY (
+          SELECT TOP 1 m.ORDER_TYPE
+          FROM TB_M_BATTERY_MAPPING m
+          WHERE m.FTYPE_BATTERY = s.FTYPE_BATTERY
+            AND m.FMODEL_BATTERY = s.FMODEL_BATTERY
+            AND m.ORDER_TYPE IS NOT NULL
+            AND LTRIM(RTRIM(m.ORDER_TYPE)) <> ''
+        ) map_ot
+        WHERE s.FSTATUS = 0 AND s.FID <> @currentFID
+        ORDER BY s.FID_ADJUST ASC
       `)
 
     const completedRes = await pool.query(`
-      SELECT TOP 100 * 
-      FROM TB_R_SEQUENCE_BATTERY
-      WHERE FSTATUS = 2
-      ORDER BY FTIME_COMPLETED DESC
+      SELECT TOP 100
+        s.*,
+        COALESCE(
+          NULLIF(LTRIM(RTRIM(s.ORDER_TYPE)), ''),
+          map_ot.ORDER_TYPE
+        ) AS ORDER_TYPE_RESOLVED
+      FROM TB_R_SEQUENCE_BATTERY s
+      OUTER APPLY (
+        SELECT TOP 1 m.ORDER_TYPE
+        FROM TB_M_BATTERY_MAPPING m
+        WHERE m.FTYPE_BATTERY = s.FTYPE_BATTERY
+          AND m.FMODEL_BATTERY = s.FMODEL_BATTERY
+          AND m.ORDER_TYPE IS NOT NULL
+          AND LTRIM(RTRIM(m.ORDER_TYPE)) <> ''
+      ) map_ot
+      WHERE s.FSTATUS = 2
+      ORDER BY s.FTIME_COMPLETED DESC
     `)
 
     const parkedRes = await pool.query(`
-      SELECT * 
-      FROM TB_R_SEQUENCE_BATTERY
-      WHERE FSTATUS = 3
-      ORDER BY FID_ADJUST ASC
+      SELECT
+        s.*,
+        COALESCE(
+          NULLIF(LTRIM(RTRIM(s.ORDER_TYPE)), ''),
+          map_ot.ORDER_TYPE
+        ) AS ORDER_TYPE_RESOLVED
+      FROM TB_R_SEQUENCE_BATTERY s
+      OUTER APPLY (
+        SELECT TOP 1 m.ORDER_TYPE
+        FROM TB_M_BATTERY_MAPPING m
+        WHERE m.FTYPE_BATTERY = s.FTYPE_BATTERY
+          AND m.FMODEL_BATTERY = s.FMODEL_BATTERY
+          AND m.ORDER_TYPE IS NOT NULL
+          AND LTRIM(RTRIM(m.ORDER_TYPE)) <> ''
+      ) map_ot
+      WHERE s.FSTATUS = 3
+      ORDER BY s.FID_ADJUST ASC
     `)
 
     return {

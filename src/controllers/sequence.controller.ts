@@ -7,11 +7,15 @@ import {
   insertSequenceSchema,
   sequenceIdParamSchema,
 } from '@/schemas/sequence.schema'
+import { strategySchema } from '@/schemas/sequence.schema'
+import { strategyStore } from '@/utils/strategyStore'
+import { broadcastSnapshot } from '@/ws/connectionHandler'
 
 export const sequenceController = {
   // ✅ Get all sequences (no validation needed for GET)
   getSequences: asyncHandler(async (req: Request, res: Response) => {
-    const data = await sequenceService.getSequences()
+    const fresh = req.query.fresh === '1'
+    const data = await sequenceService.getSequences({ fresh })
     if (data) {
       console.log('👉 Send API /sequences result')
     }
@@ -71,5 +75,36 @@ export const sequenceController = {
     const { id } = sequenceIdParamSchema.parse(req.params)
     const data = await sequenceService.removeFromParked(id)
     res.json(data)
+  }),
+
+  // ✅ Get current sequence strategy
+  getStrategy: asyncHandler(async (_req: Request, res: Response) => {
+    res.json(strategyStore.get())
+  }),
+
+  // ✅ Set sequence strategy and broadcast fresh snapshot to all WS clients
+  setStrategy: asyncHandler(async (req: Request, res: Response) => {
+    const patch = strategySchema.partial().parse(req.body)
+    const current = strategyStore.get()
+
+    const merged = {
+      ...current,
+      ...patch,
+      ratioValues: {
+        ...current.ratioValues,
+        ...(patch.ratioValues ?? {}),
+      },
+    }
+
+    const validated = strategySchema.parse(merged)
+    const updated = strategyStore.set(validated)
+
+    // Apply strategy physically in DB so queue order is DB-driven
+    await sequenceService.applyStrategyToDb(updated)
+
+    // Push updated snapshot to all sequence-monitor clients immediately
+    await broadcastSnapshot('sequences')
+
+    res.json(updated)
   }),
 }

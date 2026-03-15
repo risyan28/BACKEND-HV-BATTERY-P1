@@ -69,6 +69,10 @@ router.get('/', sequenceController.getSequences)
  */
 router.post('/', sequenceController.createSequence)
 
+// Strategy routes must be defined before dynamic '/:id' routes.
+router.get('/strategy', sequenceController.getStrategy)
+router.put('/strategy', sequenceController.setStrategy)
+
 /**
  * @swagger
  * /api/sequences/{id}:

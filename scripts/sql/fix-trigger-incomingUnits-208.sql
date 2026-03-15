@@ -1,0 +1,69 @@
+USE [DB_TMMIN1_KRW_PIS_HV_BATTERY]
+GO
+
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER OFF
+GO
+
+CREATE OR ALTER TRIGGER [dbo].[TB_RECEIVER_SUBSYSTEM_AFTER_INSERT]
+ON [dbo].[TB_R_RECEIVER_SUBSYSTEM]
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- External READ_FLG update intentionally disabled.
+    -- UPDATE r
+    -- SET r.READ_FLG = 1
+    -- FROM SUBSYSTEM_HV_P1.dbo.TB_R_RECEIVER r
+    -- JOIN inserted i ON r.ID_RECEIVER = CONVERT(UNIQUEIDENTIFIER, i.ID_RECEIVER);
+
+    DECLARE @IncomingUnits TABLE (
+        FTYPE_BATTERY varchar(20),
+        FMODEL_BATTERY varchar(30),
+        ID_RECEIVER varchar(50),
+        ALC_DATA varchar(255),
+        FSEQ_K0 varchar(3),
+        FBODY_NO_K0 varchar(5)
+    );
+
+    INSERT INTO @IncomingUnits (FTYPE_BATTERY, FMODEL_BATTERY, ID_RECEIVER, ALC_DATA, FSEQ_K0, FBODY_NO_K0)
+    SELECT DISTINCT
+        m.FTYPE_BATTERY,
+        m.FMODEL_BATTERY,
+        i.ID_RECEIVER,
+        i.ALC_DATA,
+        SUBSTRING(i.ALC_DATA, 4, 3) AS FSEQ_K0,
+        SUBSTRING(i.ALC_DATA, 7, 5) AS FBODY_NO_K0
+    FROM inserted i
+    JOIN TB_M_BATTERY_MAPPING m
+        ON m.FKATASHIKI = SUBSTRING(i.ALC_DATA, 50, 4)
+    WHERE m.ORDER_TYPE = 'Assy';
+
+    INSERT INTO TB_R_TARGET_PROD (FTYPE_BATTERY, FMODEL_BATTERY, ORDER_TYPE, FTARGET, FDATETIME_MODIFIED)
+    SELECT DISTINCT u.FTYPE_BATTERY, u.FMODEL_BATTERY, 'Assy', 0, GETDATE()
+    FROM @IncomingUnits u
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM TB_R_TARGET_PROD t
+        WHERE t.FTYPE_BATTERY = u.FTYPE_BATTERY
+          AND t.FMODEL_BATTERY = u.FMODEL_BATTERY
+    );
+
+    UPDATE t
+    SET
+        t.FTARGET            = t.FTARGET + 1,
+        t.ORDER_TYPE         = 'Assy',
+        t.FID_RECEIVER       = u.ID_RECEIVER,
+        t.FALC_DATA          = u.ALC_DATA,
+        t.FSEQ_K0            = u.FSEQ_K0,
+        t.FBODY_NO_K0        = u.FBODY_NO_K0,
+        t.FPROD_DATE         = CAST(GETDATE() AS DATE),
+        t.FDATETIME_MODIFIED = GETDATE()
+    FROM TB_R_TARGET_PROD t
+    JOIN @IncomingUnits u
+        ON t.FTYPE_BATTERY = u.FTYPE_BATTERY
+       AND t.FMODEL_BATTERY = u.FMODEL_BATTERY;
+END;
+GO

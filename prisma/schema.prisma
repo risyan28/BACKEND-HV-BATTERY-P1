@@ -69,12 +69,14 @@ model TB_M_BATTERY_MAPPING {
   FTYPE_BATTERY      String  @db.VarChar(1)
   FMODEL_BATTERY     String  @db.VarChar(20)
   FPACK_PART_BATTERY String? @db.VarChar(5)
+  ORDER_TYPE         String? @db.NVarChar(50)
 
   @@ignore
 }
 
 model TB_M_INIT_QRCODE {
   FID                    Int     @id(map: "PK_TB_M_INIT_QRCODE") @default(autoincrement())
+  ORDER_TYPE             String? @db.NVarChar(50)
   NO_BATTERYPACK         String? @db.VarChar(50)
   BATTERY_PACK_NAME      String? @db.VarChar(50)
   BATTERY_IDENTIFICATION String? @db.VarChar(10)
@@ -86,6 +88,8 @@ model TB_M_INIT_QRCODE {
   URL                    String? @db.VarChar(50)
   FTYPE_BATTERY          String? @db.VarChar(10)
   FMODEL_BATTERY         String? @db.VarChar(20)
+
+  @@unique([ORDER_TYPE, FMODEL_BATTERY], map: "UQ_INIT_QRCODE_OT_FMODEL")
 }
 
 model TB_M_LABEL_CONSTANT {
@@ -181,6 +185,7 @@ model TB_R_SEQUENCE_BATTERY {
   FTIME_RECEIVED              DateTime?              @db.DateTime
   FTIME_PRINTED               DateTime?              @db.DateTime
   FTIME_COMPLETED             DateTime?              @db.DateTime
+  ORDER_TYPE                  String?                @db.NVarChar(50)
   TB_R_SEQUENCE_BATTERY       TB_R_SEQUENCE_BATTERY  @relation("TB_R_SEQUENCE_BATTERYToTB_R_SEQUENCE_BATTERY", fields: [FID], references: [FID], onUpdate: NoAction, map: "FK_TB_R_SEQUENCE_BATTERY_TB_R_SEQUENCE_BATTERY")
   other_TB_R_SEQUENCE_BATTERY TB_R_SEQUENCE_BATTERY? @relation("TB_R_SEQUENCE_BATTERYToTB_R_SEQUENCE_BATTERY")
 }
@@ -197,6 +202,55 @@ model TB_R_TARGET_PROD {
   FID_RECEIVER       String?   @db.VarChar(50)
   FALC_DATA          String?   @db.VarChar(200)
   FDATETIME_MODIFIED DateTime? @db.DateTime
+  ORDER_TYPE         String?   @db.NVarChar(50)
+
+  @@unique([FTYPE_BATTERY, FMODEL_BATTERY], map: "UQ_TARGET_PROD_TYPE_MODEL")
+}
+
+model TB_M_PROD_ORDER_TYPE {
+  FID        Int       @id(map: "PK__TB_M_PRO__C1BEA5A29B89C41C") @default(autoincrement())
+  ORDER_TYPE String    @db.NVarChar(50)
+  IS_ACTIVE  Int       @default(1, map: "DF_TB_M_PROD_ORDER_TYPE_IS_ACTIVE")
+  SORT_ORDER Int       @default(0, map: "DF__TB_M_PROD__SORT___664B26CC")
+  CREATED_AT DateTime  @default(now(), map: "DF__TB_M_PROD__CREAT__673F4B05") @db.DateTime
+  UPDATED_AT DateTime? @db.DateTime
+}
+
+model TB_M_PROD_MODEL {
+  FID            Int       @id(map: "PK__TB_M_PRO__C1BEA5A2F198D0CC") @default(autoincrement())
+  FMODEL_BATTERY String?   @db.NVarChar(20)
+  FTYPE_BATTERY  String?   @db.VarChar(1)
+  IS_DEFAULT     Int       @default(0, map: "DF_TB_M_PROD_MODEL_IS_DEFAULT")
+  IS_ACTIVE      Int       @default(1, map: "DF_TB_M_PROD_MODEL_IS_ACTIVE")
+  CREATED_AT     DateTime  @default(now(), map: "DF__TB_M_PROD__CREAT__6C040022") @db.DateTime
+  UPDATED_AT     DateTime? @db.DateTime
+}
+
+model TB_H_PROD_PLAN {
+  FID        Int                     @id(map: "PK__TB_H_PRO__C1BEA5A257580FB3") @default(autoincrement())
+  PLAN_DATE  DateTime                @db.Date
+  SHIFT      String                  @db.NVarChar(10)
+  IS_LOCKED  Int                     @default(0, map: "DF_TB_H_PROD_PLAN_IS_LOCKED")
+  CREATED_AT DateTime                @default(now(), map: "DF__TB_H_PROD__CREAT__71BCD978") @db.DateTime
+  UPDATED_AT DateTime?               @db.DateTime
+  details    TB_H_PROD_PLAN_DETAIL[]
+
+  @@unique([PLAN_DATE, SHIFT], map: "UQ_PROD_PLAN_DATE_SHIFT")
+}
+
+model TB_H_PROD_PLAN_DETAIL {
+  FID              Int            @id(map: "PK__TB_H_PRO__C1BEA5A21B5072EC") @default(autoincrement())
+  FID_PLAN         Int
+  MODEL_NAME       String         @db.NVarChar(50)
+  ORDER_TYPE       String         @db.NVarChar(50)
+  QTY_PLAN         Int            @default(0, map: "DF__TB_H_PROD__QTY_P__758D6A5C")
+  SEQ_GENERATED    Int            @default(0, map: "DF_TB_H_PROD_PLAN_DETAIL_SEQ_GENERATED")
+  SEQ_GENERATED_AT DateTime?      @db.DateTime
+  CREATED_AT       DateTime       @default(now(), map: "DF__TB_H_PROD__CREAT__7775B2CE") @db.DateTime
+  UPDATED_AT       DateTime?      @db.DateTime
+  plan             TB_H_PROD_PLAN @relation(fields: [FID_PLAN], references: [FID], onUpdate: NoAction, map: "FK_PROD_PLAN_DETAIL_PLAN")
+
+  @@unique([FID_PLAN, MODEL_NAME, ORDER_TYPE], map: "UQ_PROD_PLAN_DETAIL")
 }
 
 model TB_M_PROD_MONTH_DAY {
@@ -225,6 +279,7 @@ model TB_H_TIGHTENING_RESULT {
   ExtractedAt        DateTime? @default(now(), map: "DF__TB_H_TIGH__Extra__6497E884") @db.DateTime
 
   @@index([LabelPackID, StationName, TighteningSequence, CreationTime(sort: Desc)], map: "IX_TIGHTENING_PACK_STATION_SEQ_TIME")
+  @@index([LabelPackID, StationName, TighteningSequence], map: "IX_TIGHTENING_PACKID")
 }
 
 model TB_H_TRACEABILITY_INSPECTION_MACHINE {
@@ -333,6 +388,7 @@ model TB_H_TRACEABILITY_INSPECTION_MACHINE {
 
   @@index([TRACEABILITY_TIMESTAMP(sort: Desc)], map: "IX_MACHINE_TIMESTAMP")
   @@index([Pack_basic_information_Battery_pack_No, CREATED_AT(sort: Desc)], map: "IX_INSP_MACHINE_PACK_DATE")
+  @@index([Pack_basic_information_Battery_pack_No], map: "IX_INSP_MACHINE_PACKID")
 }
 
 model TB_H_TRACEABILITY_MODULE_INSPECTION {
@@ -607,6 +663,7 @@ model TB_H_POS_UNLOADING {
   CREATED_AT       DateTime? @default(now(), map: "DF__TB_R_POS___CREAT__72E607DB") @db.DateTime
 
   @@index([PACK_ID, CREATED_AT(sort: Desc)], map: "IX_POS_UNLOADING_PACK_DATE")
+  @@index([CREATED_AT(sort: Desc)], map: "IX_POS_UNLOADING_CREATED_AT")
 }
 
 /// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
