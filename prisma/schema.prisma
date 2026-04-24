@@ -58,6 +58,7 @@ model TB_H_PRINT_LOG {
   DATETIME_RECEIVED DateTime? @db.DateTime
   PROD_DATE         DateTime? @db.Date
   FSHIFT            String?   @db.VarChar(1)
+  ORDER_TYPE        String?   @db.VarChar(50)
   DATETIME_MODIFIED DateTime? @db.DateTime
 
   @@index([PRINT_QRCODE, DATETIME_MODIFIED(sort: Desc)], map: "IX_PRINT_LOG_QRCODE_DATE")
@@ -97,6 +98,12 @@ model TB_M_LABEL_CONSTANT {
   FVALUE String @db.VarChar(50)
 }
 
+model TB_R_MAN_BRACKET_INTERLOCK {
+  FID         Int       @id(map: "PK_TB_R_MAN_BRACKET_INTERLOCK")
+  DESTINATION String    @db.VarChar(50)
+  FUPDATE     DateTime? @default(now()) @db.DateTime
+}
+
 model TB_R_ANDON_GLOBAL {
   FID     Int       @id(map: "PK__TB_R_AND__C1BEA5A21F30975C") @default(autoincrement())
   FNAME   String?   @db.VarChar(50)
@@ -133,7 +140,9 @@ model TB_R_POS_STATUS {
 model TB_R_PRINT_LABEL {
   FPRINT_QRCODE      String    @id(map: "PK_TB_R_PRINT_LABEL") @db.VarChar(50)
   FMODEL_BATTERY     String?   @db.VarChar(20)
+  PROD_DATE          DateTime? @db.Date
   FDATETIME_MODIFIED DateTime? @db.DateTime
+  ORDER_TYPE         String?   @db.VarChar(100)
 }
 
 model TB_R_RECEIVER_SUBSYSTEM {
@@ -243,7 +252,10 @@ model TB_H_PROD_PLAN_DETAIL {
   FID_PLAN         Int
   MODEL_NAME       String         @db.NVarChar(50)
   ORDER_TYPE       String         @db.NVarChar(50)
+  PROD_DATE        DateTime       @db.Date
+  SHIFT            String         @db.NVarChar(10)
   QTY_PLAN         Int            @default(0, map: "DF__TB_H_PROD__QTY_P__758D6A5C")
+  QTY_ACTUAL       Int            @default(0)
   SEQ_GENERATED    Int            @default(0, map: "DF_TB_H_PROD_PLAN_DETAIL_SEQ_GENERATED")
   SEQ_GENERATED_AT DateTime?      @db.DateTime
   CREATED_AT       DateTime       @default(now(), map: "DF__TB_H_PROD__CREAT__7775B2CE") @db.DateTime
@@ -674,4 +686,19 @@ model TB_M_TIGHTENING_NAME {
   TighteningSequence Int?
 
   @@ignore
+}
+
+model TB_R_MAN_BRACKET {
+  FID            Int       @id(map: "PK__TB_R_MAN__C1BEA5A2F3442881") @default(autoincrement())
+  BARCODE        String?   @db.VarChar(100)
+  DESTINATION    String?   @db.VarChar(50)
+  FMODEL_BATTERY  String?   @db.VarChar(20)
+  PROD_DATE      DateTime? @db.Date
+  SHIFT          String?   @db.VarChar(50)
+  FVALUE         Int?      @default(0)
+  START_TIME     DateTime?
+  COMPLETED_TIME DateTime?
+
+  @@index([BARCODE], map: "IX_MAN_BRACKET_BARCODE")
+  @@index([START_TIME(sort: Desc)], map: "IX_MAN_BRACKET_START_TIME")
 }

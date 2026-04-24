@@ -1,0 +1,46 @@
+-- Create dedicated transaction table for MAN BRACKET interlock destination
+IF NOT EXISTS (
+    SELECT *
+    FROM sys.objects
+    WHERE object_id = OBJECT_ID(N'[dbo].[TB_R_MAN_BRACKET_INTERLOCK]')
+      AND type in (N'U')
+)
+BEGIN
+    CREATE TABLE [dbo].[TB_R_MAN_BRACKET_INTERLOCK] (
+        [FID] INT NOT NULL PRIMARY KEY,
+        [DESTINATION] VARCHAR(50) NOT NULL,
+        [INTERLOCK_PASSWORD] VARCHAR(100) NULL,
+        [FUPDATE] DATETIME NOT NULL DEFAULT GETDATE()
+    )
+
+    INSERT INTO [dbo].[TB_R_MAN_BRACKET_INTERLOCK] ([FID], [DESTINATION], [FUPDATE])
+    VALUES (1, 'ASSY', GETDATE())
+
+    UPDATE [dbo].[TB_R_MAN_BRACKET_INTERLOCK]
+    SET [INTERLOCK_PASSWORD] = '12345678'
+    WHERE [FID] = 1
+
+    PRINT 'Table TB_R_MAN_BRACKET_INTERLOCK created successfully.'
+END
+ELSE
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM [dbo].[TB_R_MAN_BRACKET_INTERLOCK]
+        WHERE [FID] = 1
+    )
+    BEGIN
+        INSERT INTO [dbo].[TB_R_MAN_BRACKET_INTERLOCK] ([FID], [DESTINATION], [FUPDATE])
+        VALUES (1, 'ASSY', GETDATE())
+
+        UPDATE [dbo].[TB_R_MAN_BRACKET_INTERLOCK]
+        SET [INTERLOCK_PASSWORD] = '12345678'
+        WHERE [FID] = 1
+
+        PRINT 'Default row inserted into TB_R_MAN_BRACKET_INTERLOCK.'
+    END
+    ELSE
+    BEGIN
+        PRINT 'Table TB_R_MAN_BRACKET_INTERLOCK already exists.'
+    END
+END

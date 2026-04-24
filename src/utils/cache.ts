@@ -100,7 +100,19 @@ export class CacheService {
    * Delete multiple keys by pattern
    */
   async delPattern(pattern: string): Promise<number> {
-    if (!this.redis) return 0
+    // In-memory fallback: match keys manually using glob-style prefix
+    if (!this.redis) {
+      const prefix = pattern.replace(/\*/g, '')
+      let count = 0
+      for (const key of this.memoryCache.keys()) {
+        if (key.startsWith(prefix)) {
+          this.memoryCache.delete(key)
+          count++
+        }
+      }
+      loggers.cache.debug({ pattern, count }, 'Cache DEL pattern (memory)')
+      return count
+    }
 
     try {
       const keys = await this.redis.keys(pattern)

@@ -93,6 +93,7 @@ export const sequenceService = {
           : (orderTypeMap.get(`${s.FTYPE_BATTERY}|${s.FMODEL_BATTERY}`) ??
             null),
       FSEQ_DATE: formatDate(s.FSEQ_DATE),
+
       FTIME_RECEIVED: formatDateTime(s.FTIME_RECEIVED),
       FTIME_PRINTED: formatDateTime(s.FTIME_PRINTED),
       FTIME_COMPLETED: formatDateTime(s.FTIME_COMPLETED),
@@ -153,32 +154,26 @@ export const sequenceService = {
     ORDER_TYPE: 'ASSY' | 'CKD' | 'SERVICE PART'
     QTY: number
   }) {
-    const target = await prisma.tB_R_TARGET_PROD.findFirst({
-      where: {
-        FTYPE_BATTERY: data.FTYPE_BATTERY,
-        FMODEL_BATTERY: data.FMODEL_BATTERY,
-      },
-      orderBy: { FID: 'desc' }, // ambil record terakhir
-    })
-
-    if (!target) throw new Error('Target production not found')
-
-    // ✅ Using $executeRaw instead of $executeRawUnsafe to prevent SQL injection
     const qty = Number.isFinite(data.QTY) ? Math.max(1, data.QTY) : 1
     const orderTypeLabel = `INJECT MAN - ${data.ORDER_TYPE}`
-    const newTargetValue = (target.FTARGET ?? 0) + qty
-    await prisma.$executeRaw`
+
+    // Requirement: ONLY update FTARGET; sequence generation is handled by DB trigger
+    // (TB_R_TARGET_PROD_AFTER_UPDATE) based on FTARGET delta.
+    const updated = await prisma.$executeRaw`
       UPDATE TB_R_TARGET_PROD
-      SET 
-        FTARGET = ${newTargetValue},
+      SET
+        FTARGET = ISNULL(FTARGET, 0) + ${qty},
         ORDER_TYPE = ${orderTypeLabel},
-        FSEQ_K0 = NULL,
-        FBODY_NO_K0 = NULL,
-        FID_RECEIVER = NULL,
-        FALC_DATA = NULL,
+        FPROD_DATE = CAST(GETDATE() AS DATE),
         FDATETIME_MODIFIED = GETDATE()
-      WHERE FID = ${target.FID}
+      WHERE FTYPE_BATTERY = ${data.FTYPE_BATTERY}
+        AND FMODEL_BATTERY = ${data.FMODEL_BATTERY}
     `
+
+    const updatedCount = Number(updated)
+    if (Number.isFinite(updatedCount) && updatedCount === 0) {
+      throw new Error('Target production not found')
+    }
 
     return this.getSequences({ fresh: true })
   },

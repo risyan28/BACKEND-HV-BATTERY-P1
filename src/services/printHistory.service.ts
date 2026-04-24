@@ -2,6 +2,7 @@
 
 import prisma from '@/prisma'
 import { cache } from '@/utils/cache'
+import { formatDate, formatDateTime, toJakartaDbDate } from '@/utils/date'
 import { loggers } from '@/utils/logger'
 
 /**
@@ -38,25 +39,22 @@ const mapShift = (dbShift: string | null | undefined): 'DAY' | 'NIGHT' => {
 }
 
 /**
- * Format DateTime ke string "YYYY-MM-DD HH:mm:ss.SSS"
- */
-const formatDateTime = (date: Date | null | undefined): string => {
-  if (!date) return ''
-  return date.toISOString().replace('T', ' ').replace('Z', '').slice(0, 23)
-}
-
-/**
- * Format Date ke string "YYYY-MM-DD"
- */
-const formatDate = (date: Date | null | undefined): string => {
-  if (!date) return ''
-  return date.toISOString().split('T')[0]
-}
-
-/**
  * Format record dari TB_H_PRINT_LOG ke PrintHistory (FE format)
  */
-const formatPrintHistory = (record: any) => {
+const formatPrintHistory = (
+  record: any,
+  firstPrintFidByQr: Record<string, number>,
+  reprintSequenceByFid: Record<number, number>,
+) => {
+  const printDateTimeSource =
+    record.DATETIME_MODIFIED ?? record.DATETIME_RECEIVED ?? null
+
+  const qr = record.PRINT_QRCODE ? String(record.PRINT_QRCODE) : ''
+  const firstFid = qr ? firstPrintFidByQr[qr] : undefined
+  const printType =
+    firstFid && record.FID === firstFid ? 'ORIGINAL' : 'RE-PRINT'
+  const reprintSequence = reprintSequenceByFid[record.FID] ?? 0
+
   return {
     // 🔸 FID (Int) → keep as number (FE expects number type)
     id: record.FID,
@@ -65,19 +63,23 @@ const formatPrintHistory = (record: any) => {
     battery_pack_id: record.PRINT_QRCODE || `FID-${record.FID}`,
 
     // 🔸 PROD_DATE → production_date (snake_case, ISO format)
-    production_date: record.PROD_DATE?.toISOString() || null,
+    production_date: formatDate(record.PROD_DATE) || null,
 
     // 🔸 FSHIFT → map ke 'DAY'/'NIGHT'
     shift: mapShift(record.FSHIFT),
 
-    // 🔸 DATETIME_MODIFIED sebagai print_datetime (snake_case, ISO format)
-    print_datetime:
-      record.DATETIME_MODIFIED?.toISOString() ||
-      record.DATETIME_RECEIVED?.toISOString() ||
-      null,
+    // 🔸 DATETIME_MODIFIED sebagai print_datetime (snake_case, YYYY-MM-DD HH:mm:ss)
+    print_datetime: formatDateTime(printDateTimeSource) || null,
 
     // 🔸 FMODEL_BATTERY sebagai model_battery (snake_case)
     model_battery: record.FMODEL_BATTERY,
+
+    // 🔸 ORDER_TYPE (snake_case)
+    order_type: record.ORDER_TYPE || null,
+
+    // 🔸 Classification print original vs re-print
+    print_type: printType,
+    reprint_sequence: reprintSequence,
   }
 }
 
@@ -121,13 +123,86 @@ export const printHistoryService = {
           skip: skip,
           take: limit,
         })
-        return records.map(formatPrintHistory)
+
+        const qrCodes = Array.from(
+          new Set(
+            records
+              .map((record) => record.PRINT_QRCODE)
+              .filter(
+                (value): value is string =>
+                  typeof value === 'string' && value.trim().length > 0,
+              ),
+          ),
+        )
+
+        const firstPrintGroups =
+          qrCodes.length > 0
+            ? await prisma.tB_H_PRINT_LOG.groupBy({
+                by: ['PRINT_QRCODE'],
+                where: {
+                  PRINT_QRCODE: {
+                    in: qrCodes,
+                  },
+                },
+                _min: {
+                  FID: true,
+                },
+              })
+            : []
+
+        const firstPrintFidByQr = firstPrintGroups.reduce<
+          Record<string, number>
+        >((acc, item) => {
+          if (item.PRINT_QRCODE && item._min.FID) {
+            acc[item.PRINT_QRCODE] = item._min.FID
+          }
+          return acc
+        }, {})
+
+        const historyRowsByQr =
+          qrCodes.length > 0
+            ? await prisma.tB_H_PRINT_LOG.findMany({
+                where: {
+                  PRINT_QRCODE: {
+                    in: qrCodes,
+                  },
+                },
+                select: {
+                  FID: true,
+                  PRINT_QRCODE: true,
+                },
+                orderBy: {
+                  FID: 'asc',
+                },
+              })
+            : []
+
+        const reprintCounterByQr: Record<string, number> = {}
+        const reprintSequenceByFid = historyRowsByQr.reduce<
+          Record<number, number>
+        >((acc, row) => {
+          const qr = row.PRINT_QRCODE ?? ''
+          const firstFid = qr ? firstPrintFidByQr[qr] : undefined
+
+          if (!firstFid || row.FID === firstFid) {
+            acc[row.FID] = 0
+            return acc
+          }
+
+          reprintCounterByQr[qr] = (reprintCounterByQr[qr] ?? 0) + 1
+          acc[row.FID] = reprintCounterByQr[qr]
+          return acc
+        }, {})
+
+        return records.map((record) =>
+          formatPrintHistory(record, firstPrintFidByQr, reprintSequenceByFid),
+        )
       },
       CACHE_CONFIG.TTL,
     )
   },
 
-  async reprint(id: string) {
+  async reprint(id: string, productionDate?: string) {
     const fid = parseInt(id, 10)
     if (isNaN(fid)) throw new Error('Invalid ID')
 
@@ -141,12 +216,18 @@ export const printHistoryService = {
       throw new Error('PRINT_QRCODE is required for re-print')
     }
 
+    const resolvedProdDate = productionDate
+      ? toJakartaDbDate(`${productionDate} 00:00:00`)
+      : (record.PROD_DATE ?? null)
+
     // Insert data ke TB_R_PRINT_LABEL
     await prisma.tB_R_PRINT_LABEL.create({
       data: {
         FPRINT_QRCODE: record.PRINT_QRCODE,
         FMODEL_BATTERY: record.FMODEL_BATTERY,
-        FDATETIME_MODIFIED: new Date(),
+        FDATETIME_MODIFIED: toJakartaDbDate(),
+        PROD_DATE: resolvedProdDate,
+        ORDER_TYPE: record.ORDER_TYPE ?? null,
       },
     })
 

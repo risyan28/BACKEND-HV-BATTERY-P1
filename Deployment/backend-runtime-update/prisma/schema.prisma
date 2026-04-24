@@ -1,0 +1,704 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl"]
+}
+
+datasource db {
+  provider = "sqlserver"
+}
+
+model CDC_CURSOR {
+  table_name String    @id(map: "PK__CDC_CURS__B228A5BE7F853CA8") @db.NVarChar(128)
+  last_lsn   BigInt?
+  updated_at DateTime? @default(now(), map: "DF__CDC_CURSO__updat__762C88DA") @db.DateTime
+}
+
+model TB_H_ANDON_LOG {
+  FID                Int       @id(map: "PK__TB_H_AND__C1BEA5A2B805EA7F") @default(autoincrement())
+  LOG_DATE           DateTime  @db.Date
+  LINE_NAME          String?   @db.VarChar(50)
+  SHIFT_NAME         String?   @db.VarChar(20)
+  GROUP_NAME         String?   @db.VarChar(20)
+  TARGET             Int?
+  PLAN               Int?
+  ACTUAL             Int?
+  EFF                Decimal?  @db.Decimal(5, 2)
+  TAKT_TIME          Int?
+  FDATETIME_MODIFIED DateTime? @default(now(), map: "DF__TB_H_ANDO__FDATE__69C6B1F5") @db.DateTime
+}
+
+model TB_H_ANDON_STATUS {
+  FID                Int       @id(map: "PK__TB_H_DOW__C1BEA5A23D2631D9") @default(autoincrement())
+  STATION            String    @db.VarChar(50)
+  PROD_DATE          DateTime  @db.Date
+  PROD_SHIFT         String    @db.VarChar(50)
+  START_TIME         DateTime  @db.DateTime
+  END_TIME           DateTime? @db.DateTime
+  DURATION_SECOND    Int?
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_H_DOWNTIME_LOG {
+  FID                Int       @id(map: "PK__TB_R_DOW__C1BEA5A23D2631D9") @default(autoincrement())
+  STATION            String    @db.VarChar(50)
+  PROD_DATE          DateTime  @db.Date
+  PROD_SHIFT         String    @db.VarChar(50)
+  DURATION_SECOND    Int?
+  DURATION_MINUTE    Int?
+  TOTAL_DOWNTIME     Int       @default(0, map: "DF_TB_R_DOWNTIME_LOG_TOTAL_DOWNTIME")
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_H_PRINT_LOG {
+  FID               Int       @id(map: "PK__TB_H_PRI__C1BEA5A233F85546") @default(autoincrement())
+  PRINT_QRCODE      String?   @db.VarChar(50)
+  FMODEL_BATTERY    String?   @db.VarChar(10)
+  FID_RECEIVER      String?   @db.VarChar(50)
+  FALC_DATA         String?   @db.VarChar(300)
+  DATETIME_RECEIVED DateTime? @db.DateTime
+  PROD_DATE         DateTime? @db.Date
+  FSHIFT            String?   @db.VarChar(1)
+  ORDER_TYPE        String?   @db.VarChar(50)
+  DATETIME_MODIFIED DateTime? @db.DateTime
+
+  @@index([PRINT_QRCODE, DATETIME_MODIFIED(sort: Desc)], map: "IX_PRINT_LOG_QRCODE_DATE")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model TB_M_BATTERY_MAPPING {
+  FKATASHIKI         String  @db.VarChar(15)
+  FTYPE_BATTERY      String  @db.VarChar(1)
+  FMODEL_BATTERY     String  @db.VarChar(20)
+  FPACK_PART_BATTERY String? @db.VarChar(5)
+  ORDER_TYPE         String? @db.NVarChar(50)
+
+  @@ignore
+}
+
+model TB_M_INIT_QRCODE {
+  FID                    Int     @id(map: "PK_TB_M_INIT_QRCODE") @default(autoincrement())
+  ORDER_TYPE             String? @db.NVarChar(50)
+  NO_BATTERYPACK         String? @db.VarChar(50)
+  BATTERY_PACK_NAME      String? @db.VarChar(50)
+  BATTERY_IDENTIFICATION String? @db.VarChar(10)
+  EMC_ID                 String? @db.VarChar(50)
+  BATTERYPACK_ID         String? @db.VarChar(50)
+  ENERGY_BATTERY         String? @db.VarChar(10)
+  BATTERY_CATEGORY       String? @db.VarChar(10)
+  NO_EPR                 String? @db.VarChar(10)
+  URL                    String? @db.VarChar(50)
+  FTYPE_BATTERY          String? @db.VarChar(10)
+  FMODEL_BATTERY         String? @db.VarChar(20)
+
+  @@unique([ORDER_TYPE, FMODEL_BATTERY], map: "UQ_INIT_QRCODE_OT_FMODEL")
+}
+
+model TB_M_LABEL_CONSTANT {
+  FKEY   String @id(map: "PK__TB_M_LAB__A198C993F714F866") @db.VarChar(50)
+  FVALUE String @db.VarChar(50)
+}
+
+model TB_R_MAN_BRACKET_INTERLOCK {
+  FID         Int       @id(map: "PK_TB_R_MAN_BRACKET_INTERLOCK")
+  DESTINATION String    @db.VarChar(50)
+  FUPDATE     DateTime? @default(now()) @db.DateTime
+}
+
+model TB_R_ANDON_GLOBAL {
+  FID     Int       @id(map: "PK__TB_R_AND__C1BEA5A21F30975C") @default(autoincrement())
+  FNAME   String?   @db.VarChar(50)
+  FVALUE  Int?
+  FUPDATE DateTime? @db.DateTime
+}
+
+model TB_R_ANDON_STATUS {
+  FID                Int       @id(map: "PK__TB_R_AND__C1BEA5A255335920") @default(autoincrement())
+  STATION            String    @db.VarChar(50)
+  CALL_TYPE          String    @db.VarChar(20)
+  FVALUE             Int?      @default(0, map: "DF__TB_R_ANDO__FVALU__7908F585") @db.TinyInt
+  FDATETIME_MODIFIED DateTime? @default(now(), map: "DF__TB_R_ANDO__FDATE__79FD19BE") @db.DateTime
+}
+
+model TB_R_DOWNTIME_LOG {
+  FID                Int       @id(map: "PK__TB_R_DOWN__C1BEA5A23D2631D9") @default(autoincrement())
+  STATION            String    @db.VarChar(50)
+  DURATION_SECOND    Int?
+  DURATION_MINUTE    Int?
+  TOTAL_DOWNTIME     Int
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_R_POS_STATUS {
+  FID                Int       @id(map: "PK__TB_R_POS__C1BEA5A2D0966795") @default(autoincrement())
+  STATION            String?   @db.VarChar(50)
+  STATUS             String?   @db.VarChar(50)
+  FVALUE             Int?      @default(0, map: "DF_TB_R_POS_STATUS_FVALUE")
+  SOURCE             String?   @db.VarChar(50)
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+}
+
+model TB_R_PRINT_LABEL {
+  FPRINT_QRCODE      String    @id(map: "PK_TB_R_PRINT_LABEL") @db.VarChar(50)
+  FMODEL_BATTERY     String?   @db.VarChar(20)
+  PROD_DATE          DateTime? @db.Date
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+  ORDER_TYPE         String?   @db.VarChar(100)
+}
+
+model TB_R_RECEIVER_SUBSYSTEM {
+  ID_RECEIVER   String    @id(map: "PK__TB_R_REC__A92E6503CCC63D64") @db.VarChar(50)
+  BC_STS        String?   @db.Char(2)
+  PR_STS        String?   @db.Char(2)
+  SENT_TO       String?   @db.VarChar(50)
+  RECEIVED_FROM String?   @db.VarChar(50)
+  ALC_DATA      String?   @db.VarChar(255)
+  READ_FLG      String?   @default("0", map: "DF__TB_RECEIV__READ___318258D2") @db.VarChar(1)
+  PROC_BY       String?   @db.VarChar(20)
+  PROC_DT       DateTime? @db.DateTime
+  PROC_ID       String?   @db.VarChar(20)
+  CREATED_BY    String    @db.VarChar(20)
+  CREATED_DT    DateTime  @default(now(), map: "DF__TB_RECEIV__CREAT__32767D0B") @db.DateTime
+  CHANGED_BY    String?   @db.VarChar(20)
+  CHANGED_DT    DateTime? @db.DateTime
+}
+
+model TB_R_RFID_COMMAND {
+  FID                Int      @id(map: "PK__TB_R_RFI__C1BEA5A2F3442881") @default(autoincrement())
+  STATION_NAME       String   @db.NVarChar(100)
+  STATION_ID         String?  @db.NVarChar(100)
+  COMMAND            String   @db.NVarChar(20)
+  FVALUE             Int      @default(0, map: "DF__TB_R_RFID__FVALU__269AB60B")
+  FDATETIME_MODIFIED DateTime @default(now(), map: "DF__TB_R_RFID__FDATE__278EDA44") @db.DateTime
+
+  @@index([COMMAND], map: "IX_TB_R_RFID_COMMAND_COMMAND")
+  @@index([FVALUE], map: "IX_TB_R_RFID_COMMAND_FVALUE")
+  @@index([FVALUE, COMMAND], map: "IX_TB_R_RFID_COMMAND_FVALUE_COMMAND")
+  @@index([FDATETIME_MODIFIED], map: "IX_TB_R_RFID_COMMAND_MODIFIED")
+  @@index([STATION_ID], map: "IX_TB_R_RFID_COMMAND_STATION_ID")
+  @@index([STATION_NAME], map: "IX_TB_R_RFID_COMMAND_STATION_NAME")
+}
+
+model TB_R_SEQUENCE_BATTERY {
+  FID                         Int                    @id(map: "PK__TB_R_SEQ__C1BEA5A25E590614") @default(autoincrement())
+  FID_ADJUST                  Int?
+  FSEQ_NO                     Int
+  FTYPE_BATTERY               String                 @db.VarChar(1)
+  FMODEL_BATTERY              String                 @db.VarChar(20)
+  FSEQ_DATE                   DateTime               @db.Date
+  FSTATUS                     Int?
+  FBARCODE                    String?                @db.VarChar(100)
+  FSEQ_K0                     String?                @db.VarChar(100)
+  FBODY_NO_K0                 String?                @db.VarChar(100)
+  FID_RECEIVER                String?                @db.VarChar(50)
+  FALC_DATA                   String?                @db.VarChar(200)
+  FTIME_RECEIVED              DateTime?              @db.DateTime
+  FTIME_PRINTED               DateTime?              @db.DateTime
+  FTIME_COMPLETED             DateTime?              @db.DateTime
+  ORDER_TYPE                  String?                @db.NVarChar(50)
+  TB_R_SEQUENCE_BATTERY       TB_R_SEQUENCE_BATTERY  @relation("TB_R_SEQUENCE_BATTERYToTB_R_SEQUENCE_BATTERY", fields: [FID], references: [FID], onUpdate: NoAction, map: "FK_TB_R_SEQUENCE_BATTERY_TB_R_SEQUENCE_BATTERY")
+  other_TB_R_SEQUENCE_BATTERY TB_R_SEQUENCE_BATTERY? @relation("TB_R_SEQUENCE_BATTERYToTB_R_SEQUENCE_BATTERY")
+}
+
+model TB_R_TARGET_PROD {
+  FID                Int       @id(map: "PK__tb_targe__D9908D6455315C69") @default(autoincrement())
+  FTYPE_BATTERY      String?   @db.VarChar(20)
+  FMODEL_BATTERY     String?   @db.VarChar(30)
+  FPACK_PART_BATTERY String?   @db.VarChar(5)
+  FTARGET            Int?      @default(0, map: "DF_TB_R_TARGET_PROD_ftarget")
+  FPROD_DATE         DateTime? @db.Date
+  FSEQ_K0            String?   @db.VarChar(3)
+  FBODY_NO_K0        String?   @db.VarChar(5)
+  FID_RECEIVER       String?   @db.VarChar(50)
+  FALC_DATA          String?   @db.VarChar(200)
+  FDATETIME_MODIFIED DateTime? @db.DateTime
+  ORDER_TYPE         String?   @db.NVarChar(50)
+
+  @@unique([FTYPE_BATTERY, FMODEL_BATTERY], map: "UQ_TARGET_PROD_TYPE_MODEL")
+}
+
+model TB_M_PROD_ORDER_TYPE {
+  FID        Int       @id(map: "PK__TB_M_PRO__C1BEA5A29B89C41C") @default(autoincrement())
+  ORDER_TYPE String    @db.NVarChar(50)
+  IS_ACTIVE  Int       @default(1, map: "DF_TB_M_PROD_ORDER_TYPE_IS_ACTIVE")
+  SORT_ORDER Int       @default(0, map: "DF__TB_M_PROD__SORT___664B26CC")
+  CREATED_AT DateTime  @default(now(), map: "DF__TB_M_PROD__CREAT__673F4B05") @db.DateTime
+  UPDATED_AT DateTime? @db.DateTime
+}
+
+model TB_M_PROD_MODEL {
+  FID            Int       @id(map: "PK__TB_M_PRO__C1BEA5A2F198D0CC") @default(autoincrement())
+  FMODEL_BATTERY String?   @db.NVarChar(20)
+  FTYPE_BATTERY  String?   @db.VarChar(1)
+  IS_DEFAULT     Int       @default(0, map: "DF_TB_M_PROD_MODEL_IS_DEFAULT")
+  IS_ACTIVE      Int       @default(1, map: "DF_TB_M_PROD_MODEL_IS_ACTIVE")
+  CREATED_AT     DateTime  @default(now(), map: "DF__TB_M_PROD__CREAT__6C040022") @db.DateTime
+  UPDATED_AT     DateTime? @db.DateTime
+}
+
+model TB_H_PROD_PLAN {
+  FID        Int                     @id(map: "PK__TB_H_PRO__C1BEA5A257580FB3") @default(autoincrement())
+  PLAN_DATE  DateTime                @db.Date
+  SHIFT      String                  @db.NVarChar(10)
+  IS_LOCKED  Int                     @default(0, map: "DF_TB_H_PROD_PLAN_IS_LOCKED")
+  CREATED_AT DateTime                @default(now(), map: "DF__TB_H_PROD__CREAT__71BCD978") @db.DateTime
+  UPDATED_AT DateTime?               @db.DateTime
+  details    TB_H_PROD_PLAN_DETAIL[]
+
+  @@unique([PLAN_DATE, SHIFT], map: "UQ_PROD_PLAN_DATE_SHIFT")
+}
+
+model TB_H_PROD_PLAN_DETAIL {
+  FID              Int            @id(map: "PK__TB_H_PRO__C1BEA5A21B5072EC") @default(autoincrement())
+  FID_PLAN         Int
+  MODEL_NAME       String         @db.NVarChar(50)
+  ORDER_TYPE       String         @db.NVarChar(50)
+  PROD_DATE        DateTime       @db.Date
+  SHIFT            String         @db.NVarChar(10)
+  QTY_PLAN         Int            @default(0, map: "DF__TB_H_PROD__QTY_P__758D6A5C")
+  QTY_ACTUAL       Int            @default(0)
+  SEQ_GENERATED    Int            @default(0, map: "DF_TB_H_PROD_PLAN_DETAIL_SEQ_GENERATED")
+  SEQ_GENERATED_AT DateTime?      @db.DateTime
+  CREATED_AT       DateTime       @default(now(), map: "DF__TB_H_PROD__CREAT__7775B2CE") @db.DateTime
+  UPDATED_AT       DateTime?      @db.DateTime
+  plan             TB_H_PROD_PLAN @relation(fields: [FID_PLAN], references: [FID], onUpdate: NoAction, map: "FK_PROD_PLAN_DETAIL_PLAN")
+
+  @@unique([FID_PLAN, MODEL_NAME, ORDER_TYPE], map: "UQ_PROD_PLAN_DETAIL")
+}
+
+model TB_M_PROD_MONTH_DAY {
+  FID        Int     @id(map: "PK_TB_M_PROD_MONTH_DAY") @default(autoincrement())
+  FMONTH_DAY String? @db.VarChar(50)
+  FCODE      String? @db.VarChar(50)
+}
+
+model TB_M_PROD_YEAR {
+  FID        Int     @id(map: "PK_TB_M_PROD_YEAR") @default(autoincrement())
+  FCODE_YEAR String? @db.VarChar(2)
+  FYEAR      String? @db.VarChar(5)
+}
+
+model TB_H_TIGHTENING_RESULT {
+  Id                 Int       @id(map: "PK__TB_H_TIG__3214EC077DDE2BB9") @default(autoincrement())
+  LabelPackID        String?   @db.NVarChar(100)
+  StationName        String?   @db.NVarChar(255)
+  TorqueMeasured     Decimal?  @db.Decimal(18, 6)
+  TorqueUnit         String?   @db.NVarChar(10)
+  AngleMeasured      Decimal?  @db.Decimal(18, 6)
+  AngleUnit          String?   @db.NVarChar(10)
+  ResultEvaluation   String?   @db.NVarChar(20)
+  CreationTime       DateTime? @db.DateTime
+  TighteningSequence Int?
+  ExtractedAt        DateTime? @default(now(), map: "DF__TB_H_TIGH__Extra__6497E884") @db.DateTime
+
+  @@index([LabelPackID, StationName, TighteningSequence, CreationTime(sort: Desc)], map: "IX_TIGHTENING_PACK_STATION_SEQ_TIME")
+  @@index([LabelPackID, StationName, TighteningSequence], map: "IX_TIGHTENING_PACKID")
+}
+
+model TB_H_TRACEABILITY_INSPECTION_MACHINE {
+  ID                                                                                          Int       @id(map: "PK__TB_H_TRA__3214EC275DD08430") @default(autoincrement())
+  TRACEABILITY_TIMESTAMP                                                                      DateTime? @default(now(), map: "DF__TB_H_TRAC__TRACE__72E607DB") @db.DateTime
+  Pack_basic_information_Battery_type_No                                                      String?   @db.VarChar(10)
+  Pack_basic_information_Measurement_mode                                                     String?   @db.VarChar(10)
+  Pack_basic_information_Equipment_ID                                                         String?   @db.VarChar(20)
+  Pack_basic_information_Battery_module_No                                                    String?   @db.VarChar(50)
+  Pack_basic_information_Battery_pack_No                                                      String?   @db.VarChar(50)
+  Pack_basic_information_Production_start_date_and_time                                       DateTime? @db.DateTime
+  Pack_basic_information_Production_completed_date_and_time                                   DateTime? @db.DateTime
+  Main_relay_function_Voltage_SMR_B_ON                                                        Decimal?  @db.Decimal(10, 3)
+  Total_voltage_measurement_V0_and_SMR_B_AG_ON_confirmation                                   Decimal?  @db.Decimal(10, 3)
+  Insulation_resistance_test_Insulation_resistance_measurement_Side_insulation_resistance_V0m Decimal?  @db.Decimal(10, 3)
+  Insulation_resistance_test_Insulation_resistance_measurement_Side_insulation_resistance_V0p Decimal?  @db.Decimal(10, 3)
+  Insulation_resistance_test_Side_insulation_resistance_measurement_Rm                        Decimal?  @db.Decimal(10, 3)
+  Insulation_resistance_test_Insulation_resistance_measurement_V0_17                          Decimal?  @db.Decimal(10, 3)
+  Main_relay_function_Voltage_SMR_G_ON                                                        Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage1                                           Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage2                                           Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage3                                           Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage4                                           Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage5                                           Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage6                                           Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage7                                           Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage8                                           Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage9                                           Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage10                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage11                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage12                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage13                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage14                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage15                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage16                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage17                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage18                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage19                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage20                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage21                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage22                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage23                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage24                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage25                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage26                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage27                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage28                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage29                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage30                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage31                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage32                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage33                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage34                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage35                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage36                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage37                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage38                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage39                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage40                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage41                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage42                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage43                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage44                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage45                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage46                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage47                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage48                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage49                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage50                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage51                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage52                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage53                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage54                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage55                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage56                                          Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage57                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage58                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage59                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage60                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage61                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage62                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage63                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage64                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage65                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage66                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage67                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage68                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage69                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage70                                          String?   @db.VarChar(10)
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage_difference_in_stack_Max_Min_1              Int?
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage_difference_in_stack_Median_Min_1           Int?
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage_difference_in_stack_Max_Min_2              Int?
+  Battery_ECU_check_Battery_ECU_check_Cell_voltage_difference_in_stack_Median_Min_2           Int?
+  Battery_ECU_check_Battery_ECU_check_Cell_thermistor_temperature_TB0                         Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_thermistor_temperature_TB1                         Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_thermistor_temperature_TB2                         Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_thermistor_temperature_TB3                         Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_thermistor_temperature_TB4                         Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_Battery_ECU_check_Cell_thermistor_temperature_TB5                         Decimal?  @db.Decimal(10, 3)
+  Battery_ECU_check_ECU_product_number                                                        String?   @db.VarChar(20)
+  Battery_ECU_check_Judgment                                                                  String?   @db.VarChar(10)
+  Inspection_judgment_Overall_judgment                                                        Int?
+  Inspection_judgment_Inspection_NG_process_No                                                Int?
+  DTC_confirmation                                                                            String?   @db.VarChar(100)
+  CREATED_AT                                                                                  DateTime? @default(now(), map: "DF__TB_H_TRAC__CREAT__73DA2C14") @db.DateTime
+
+  @@index([TRACEABILITY_TIMESTAMP(sort: Desc)], map: "IX_MACHINE_TIMESTAMP")
+  @@index([Pack_basic_information_Battery_pack_No, CREATED_AT(sort: Desc)], map: "IX_INSP_MACHINE_PACK_DATE")
+  @@index([Pack_basic_information_Battery_pack_No], map: "IX_INSP_MACHINE_PACKID")
+}
+
+model TB_H_TRACEABILITY_MODULE_INSPECTION {
+  ID                                Int       @id(map: "PK__TB_H_TRA__3214EC278E5E80A0") @default(autoincrement())
+  TRACEABILITY_TIMESTAMP            DateTime? @default(now(), map: "DF__TB_H_TRAC__TRACE__76B698BF") @db.DateTime
+  Battery_type_No_1_Li56cell        String?   @db.VarChar(10)
+  Fr_stack_ID                       String?   @db.VarChar(50)
+  Rr_stack_ID                       String?   @db.VarChar(50)
+  Measurement_mode                  String?   @db.VarChar(10)
+  TMMIN_Cell_Measurement_date       DateTime? @db.Date
+  Supplier_Cell_Measurement_date    DateTime? @db.Date
+  Cell_voltage_Fr_1_V               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_2_V               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_3_V               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_4_V               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_5_V               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_6_V               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_7_V               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_8_V               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_9_V               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_10_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_11_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_12_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_13_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_14_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_15_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_16_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_17_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_18_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_19_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_20_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_21_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_22_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_23_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_24_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_25_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_26_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_27_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_28_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_29_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_30_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_31_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_32_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_33_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_34_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_35_V              Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_Max               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_Min               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_Median            Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_Max_Min           Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_Median_Min        Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Fr_Max_Min_Judge     Int?
+  Cell_voltage_Fr_Median_Min_Judge  Int?
+  Cell_voltage_Fr_1_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_2_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_3_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_4_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_5_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_6_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_7_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_8_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_9_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_10_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_11_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_12_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_13_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_14_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_15_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_16_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_17_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_18_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_19_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_20_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_21_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_22_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_23_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_24_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_25_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_26_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_27_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_28_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_29_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_30_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_31_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_32_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_33_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_34_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Fr_35_mV             Decimal?  @db.Decimal(10, 1)
+  Self_Discharge_Cell_Voltage_Fr_1  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_2  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_3  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_4  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_5  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_6  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_7  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_8  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_9  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_10 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_11 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_12 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_13 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_14 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_15 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_16 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_17 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_18 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_19 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_20 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_21 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_22 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_23 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_24 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_25 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_26 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_27 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_28 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_29 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_30 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_31 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_32 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_33 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_34 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Fr_35 Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_1                 Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_2                 Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_3                 Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_4                 Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_5                 Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_6                 Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_7                 Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_8                 Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_9                 Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_10                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_11                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_12                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_13                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_14                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_15                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_16                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_17                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_18                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_19                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_20                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_21                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_22                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_23                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_24                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_25                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_26                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_27                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_28                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_29                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_30                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_31                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_32                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_33                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_34                Decimal?  @db.Decimal(10, 3)
+  Cell_Voltage_Rr_35                Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Rr_Max               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Rr_Min               Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Rr_Median            Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Rr_Max_Min           Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Rr_Median_Min        Decimal?  @db.Decimal(10, 3)
+  Cell_voltage_Rr_Max_Min_Judge     Int?
+  Cell_voltage_Rr_Median_Min_Judge  Int?
+  Cell_voltage_Rr_1_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_2_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_3_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_4_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_5_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_6_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_7_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_8_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_9_mV              Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_10_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_11_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_12_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_13_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_14_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_15_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_16_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_17_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_18_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_19_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_20_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_21_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_22_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_23_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_24_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_25_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_26_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_27_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_28_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_29_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_30_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_31_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_32_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_33_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_34_mV             Decimal?  @db.Decimal(10, 1)
+  Cell_voltage_Rr_35_mV             Decimal?  @db.Decimal(10, 1)
+  Self_Discharge_Cell_Voltage_Rr_1  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_2  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_3  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_4  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_5  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_6  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_7  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_8  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_9  Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_10 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_11 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_12 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_13 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_14 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_15 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_16 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_17 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_18 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_19 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_20 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_21 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_22 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_23 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_24 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_25 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_26 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_27 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_28 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_29 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_30 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_31 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_32 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_33 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_34 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Cell_Voltage_Rr_35 Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Highest_Value      Decimal?  @db.Decimal(10, 3)
+  Self_Discharge_Value_Judge        Int?
+  CREATED_AT                        DateTime? @default(now(), map: "DF__TB_H_TRAC__CREAT__77AABCF8") @db.DateTime
+
+  @@index([TRACEABILITY_TIMESTAMP(sort: Desc)], map: "IX_MODULE_TIMESTAMP")
+  @@index([Fr_stack_ID, CREATED_AT(sort: Desc)], map: "IX_MODULE_INSP_FR_DATE")
+  @@index([Rr_stack_ID, CREATED_AT(sort: Desc)], map: "IX_MODULE_INSP_RR_DATE")
+}
+
+model TB_H_POS_FINAL_JUDGEMENT {
+  ID                 Int       @id(map: "PK__TB_H_POS__3214EC2799FCEAEB") @default(autoincrement())
+  MODULE_1           String?   @db.NVarChar(Max)
+  MODULE_2           String?   @db.NVarChar(Max)
+  PACK_ID            String    @db.NVarChar(100)
+  LIFETIME_MODULE1   String?   @db.NVarChar(Max)
+  LIFETIME_MODULE2   String?   @db.NVarChar(Max)
+  JUDGE_INSP_MACHINE String?   @db.VarChar(10)
+  JUDGE_MAN_ASSY_1   String?   @db.VarChar(10)
+  JUDGE_MAN_ASSY_2   String?   @db.VarChar(10)
+  JUDGE_MAN_ASSY_3   String?   @db.VarChar(10)
+  JUDGE_INSP_MODULE  String?   @db.VarChar(10)
+  JUDGE_LABEL_CAM    String?   @db.VarChar(10)
+  OVERALL_JUDGEMENT  String?   @db.VarChar(10)
+  CREATED_AT         DateTime? @default(now(), map: "DF__TB_H_POS___CREAT__0D99FE17") @db.DateTime
+
+  @@index([PACK_ID, CREATED_AT(sort: Desc)], map: "IX_FINAL_JUDGEMENT_PACK_DATE")
+}
+
+model TB_H_POS_UNLOADING {
+  ID               Int       @id(map: "PK__TB_R_POS__3214EC273581B09D") @default(autoincrement())
+  PACK_ID          String    @db.NVarChar(100)
+  MODULE_1         String?   @db.NVarChar(Max)
+  MODULE_2         String?   @db.NVarChar(Max)
+  LIFETIME_MODULE1 String?   @db.NVarChar(10)
+  LIFETIME_MODULE2 String?   @db.NVarChar(10)
+  JUDGEMENT_VALUE  String?   @db.NVarChar(2)
+  CREATED_AT       DateTime? @default(now(), map: "DF__TB_R_POS___CREAT__72E607DB") @db.DateTime
+
+  @@index([PACK_ID, CREATED_AT(sort: Desc)], map: "IX_POS_UNLOADING_PACK_DATE")
+  @@index([CREATED_AT(sort: Desc)], map: "IX_POS_UNLOADING_CREATED_AT")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model TB_M_TIGHTENING_NAME {
+  FID                Int     @id(map: "PK_TB_M_TIGHTENING_NAME") @default(autoincrement())
+  StationName        String? @db.VarChar(20)
+  TighteningName     String? @db.VarChar(100)
+  TighteningSequence Int?
+
+  @@ignore
+}
+
+model TB_R_MAN_BRACKET {
+  FID            Int       @id(map: "PK__TB_R_MAN__C1BEA5A2F3442881") @default(autoincrement())
+  BARCODE        String?   @db.VarChar(100)
+  DESTINATION    String?   @db.VarChar(50)
+  FMODEL_BATTERY  String?   @db.VarChar(20)
+  PROD_DATE      DateTime? @db.Date
+  SHIFT          String?   @db.VarChar(50)
+  FVALUE         Int?      @default(0)
+  START_TIME     DateTime?
+  COMPLETED_TIME DateTime?
+
+  @@index([BARCODE], map: "IX_MAN_BRACKET_BARCODE")
+  @@index([START_TIME(sort: Desc)], map: "IX_MAN_BRACKET_START_TIME")
+}

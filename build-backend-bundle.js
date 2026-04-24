@@ -1,5 +1,6 @@
 // build-backend-bundle.js
 const fs = require('fs')
+const crypto = require('crypto')
 const path = require('path')
 const { execSync } = require('child_process')
 const os = require('os')
@@ -9,8 +10,20 @@ const DIST = path.join(ROOT, 'dist')
 const PACKAGE_JSON = path.join(ROOT, 'package.json')
 const PRISMA_DIR = path.join(ROOT, 'prisma')
 const ENV_FILE = path.join(ROOT, '.env') // Ganti ke .env.production jika kamu punya
-const TARGET = path.join(ROOT, 'backend-runtime') // Nama folder output
-const ZIP_FILE = path.join(ROOT, 'backend-runtime.zip') // Nama file zip output
+const MANIFEST_FILE = path.join(ROOT, 'backend-runtime.bundle-state.json')
+const MODE = process.argv.includes('--slim') ? 'slim' : 'full'
+const TARGET = path.join(
+  ROOT,
+  MODE === 'slim' ? 'backend-runtime-update' : 'backend-runtime',
+) // Nama folder output
+const ZIP_FILE = path.join(
+  ROOT,
+  MODE === 'slim' ? 'backend-runtime-update.zip' : 'backend-runtime.zip',
+) // Nama file zip output
+const ARCHIVE_FILE =
+  MODE === 'slim' && os.platform() !== 'win32'
+    ? ZIP_FILE.replace(/\.zip$/, '.tar.gz')
+    : ZIP_FILE
 
 function run(cmd, cwd = ROOT) {
   console.log(`> ${cmd}`)
@@ -42,7 +55,78 @@ function copyRecursive(src, dest) {
   }
 }
 
+function hashFile(filePath) {
+  if (!fs.existsSync(filePath)) return `missing:${filePath}`
+
+  const hash = crypto.createHash('sha256')
+  hash.update(fs.readFileSync(filePath))
+  return hash.digest('hex')
+}
+
+function hashDirectory(dirPath) {
+  if (!fs.existsSync(dirPath)) return `missing:${dirPath}`
+
+  const hash = crypto.createHash('sha256')
+
+  function walk(currentPath) {
+    const stats = fs.statSync(currentPath)
+    if (stats.isDirectory()) {
+      const children = fs.readdirSync(currentPath).sort()
+      hash.update(`dir:${path.relative(ROOT, currentPath)}`)
+      for (const child of children) {
+        walk(path.join(currentPath, child))
+      }
+      return
+    }
+
+    hash.update(`file:${path.relative(ROOT, currentPath)}`)
+    hash.update(fs.readFileSync(currentPath))
+  }
+
+  walk(dirPath)
+  return hash.digest('hex')
+}
+
+function readManifest() {
+  if (!fs.existsSync(MANIFEST_FILE)) return null
+
+  try {
+    return JSON.parse(fs.readFileSync(MANIFEST_FILE, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function writeManifest(manifest) {
+  fs.writeFileSync(MANIFEST_FILE, JSON.stringify(manifest, null, 2))
+}
+
+function getBundleSignature() {
+  return crypto
+    .createHash('sha256')
+    .update(hashFile(PACKAGE_JSON))
+    .update(hashFile(path.join(ROOT, 'package-lock.json')))
+    .update(hashDirectory(PRISMA_DIR))
+    .digest('hex')
+}
+
 console.log('📦 Starting Backend Runtime Bundle Creation...\n')
+console.log(`   Mode: ${MODE.toUpperCase()}`)
+
+const currentBundleSignature = getBundleSignature()
+const previousManifest = readManifest()
+
+if (
+  MODE === 'slim' &&
+  (!previousManifest ||
+    previousManifest.bundleSignature !== currentBundleSignature)
+) {
+  console.error(
+    '\n⚠️  Slim bundle rejected: package.json, package-lock.json, or prisma/ changed since the last full bundle.',
+  )
+  console.error('   Run: npm run bundle:be:full')
+  process.exit(1)
+}
 
 try {
   // 1. Pastikan dist/ dan prisma/ siap
@@ -91,12 +175,16 @@ try {
     )
   }
 
-  // 4. Install production dependencies di folder runtime
-  console.log(
-    '\n📦 Step 4: Installing production dependencies in runtime folder...',
-  )
-  run('npm install --omit=dev', TARGET) // Install di dalam folder target
-  run('npx prisma generate', TARGET) // Generate Prisma Client di dalam folder target
+  // 4. Install production dependencies hanya untuk full bootstrap bundle
+  if (MODE === 'full') {
+    console.log(
+      '\n📦 Step 4: Installing production dependencies in runtime folder...',
+    )
+    run('npm install --omit=dev', TARGET) // Install di dalam folder target
+    run('npx prisma generate', TARGET) // Generate Prisma Client di dalam folder target
+  } else {
+    console.log('\n⚡ Step 4: Slim mode - skipping node_modules install')
+  }
 
   // 5. Create deployment guide
   console.log('\n📝 Step 5: Creating deployment guide...')
@@ -317,47 +405,49 @@ pause
   fs.writeFileSync(path.join(TARGET, 'install-pm2.bat'), installPm2)
   console.log('   Created install-pm2.bat (One-time PM2 installation)')
 
-  // 7. Create ZIP archive (DISABLED - manual folder copy)
-  // console.log('\n🗜️  Step 7: Creating ZIP archive...')
-  // let zipCmd
-  // if (os.platform() === 'win32') {
-  //   // Gunakan powershell Compress-Archive
-  //   zipCmd = `powershell -Command "Compress-Archive -Path '${TARGET}\\*' -DestinationPath '${ZIP_FILE}' -Force"`
-  // } else {
-  //   // Gunakan tar untuk better compression dan compatibility
-  //   const tarFile = ZIP_FILE.replace('.zip', '.tar.gz')
-  //   zipCmd = `tar -czf ${tarFile} -C ${path.dirname(TARGET)} ${path.basename(TARGET)}`
-  // }
-  // run(zipCmd, ROOT)
-  // console.log(`   ✅ Created: ${path.basename(ZIP_FILE)}`)
+  // 7. Create ZIP archive only for slim overlay bundles
+  if (MODE === 'slim') {
+    console.log('\n🗜️  Step 7: Creating ZIP archive...')
+    let zipCmd
+    if (os.platform() === 'win32') {
+      zipCmd = `powershell -Command "Compress-Archive -Path '${TARGET}\\*' -DestinationPath '${ARCHIVE_FILE}' -Force"`
+    } else {
+      zipCmd = `tar -czf ${ARCHIVE_FILE} -C ${path.dirname(TARGET)} ${path.basename(TARGET)}`
+    }
+    run(zipCmd, ROOT)
+    console.log(`   ✅ Created: ${path.basename(ARCHIVE_FILE)}`)
+  }
 
   console.log('\n✅ Success!')
   console.log(`   - Backend runtime bundle ready: ${TARGET}`)
-  console.log(`   - Ready for manual deployment (copy folder directly)`)
-  // console.log(`   - ZIP archive ready: ${ZIP_FILE}`)
-  // console.log(
-  //   `   - File size: ${(fs.statSync(ZIP_FILE).size / 1024 / 1024).toFixed(2)} MB`,
-  // )
+  if (MODE === 'slim') {
+    console.log(`   - ZIP archive ready: ${ARCHIVE_FILE}`)
+    console.log(`   - Ready as overlay update for existing runtime`)
+  } else {
+    console.log(`   - Ready for manual deployment (copy folder directly)`)
+    writeManifest({
+      bundleType: 'full',
+      createdAt: new Date().toISOString(),
+      bundleSignature: currentBundleSignature,
+    })
+  }
   console.log('\n📋 Next Steps:')
-  console.log(
-    `   1. Copy entire '${path.basename(TARGET)}' folder to production server`,
-  )
-  console.log(`   2. Navigate: cd backend-runtime`)
-  console.log(`   3. Edit .env for production settings`)
-  console.log(`   4. Start server:`)
-  console.log(`      - Windows: Double-click start-pm2.bat (recommended)`)
-  console.log(`      - Or: node dist/index.js`)
-  console.log(`   5. Read DEPLOYMENT.md for detailed instructions`)
-  // console.log(
-  //   `   1. Copy '${path.basename(ZIP_FILE)}' to your production server`,
-  // )
-  // console.log(`   2. Extract: unzip ${path.basename(ZIP_FILE)}`)
-  // console.log(`   3. Navigate: cd backend-runtime`)
-  // console.log(`   4. Edit .env for production settings`)
-  // console.log(`   5. Start server:`)
-  // console.log(`      - Windows: Double-click start-pm2.bat (recommended)`)
-  // console.log(`      - Or: node dist/index.js`)
-  // console.log(`   6. Read DEPLOYMENT.md for detailed instructions`)
+  if (MODE === 'slim') {
+    console.log(`   1. Extract ZIP into existing backend-runtime folder`)
+    console.log(`   2. Keep node_modules from the base runtime install`)
+    console.log(`   3. Restart PM2 / service`)
+    console.log(`   4. Run Prisma migrate only if schema changed`)
+  } else {
+    console.log(
+      `   1. Copy entire '${path.basename(TARGET)}' folder to production server`,
+    )
+    console.log(`   2. Navigate: cd backend-runtime`)
+    console.log(`   3. Edit .env for production settings`)
+    console.log(`   4. Start server:`)
+    console.log(`      - Windows: Double-click start-pm2.bat (recommended)`)
+    console.log(`      - Or: node dist/index.js`)
+    console.log(`   5. Read DEPLOYMENT.md for detailed instructions`)
+  }
 } catch (error) {
   console.error('\n❌ An error occurred during the build process:')
   console.error(error.message)

@@ -2,6 +2,7 @@
 
 import prisma from '@/prisma'
 import { cache } from '@/utils/cache'
+import { formatDate } from '@/utils/date'
 import { loggers } from '@/utils/logger'
 
 /**
@@ -14,22 +15,15 @@ const CACHE_CONFIG = {
 }
 
 /**
- * Format DateTime ke string "YYYY-MM-DD HH:mm:ss.SSS"
+ * Normalize date-only value to string "YYYY-MM-DD".
+ * - If DB returns string, keep prefix (no timezone shifting).
+ * - If DB returns Date, format consistently for UI.
  */
-const formatDateTime = (date: Date | null | undefined): string => {
-  if (!date) return ''
-  return date.toISOString().replace('T', ' ').replace('Z', '').slice(0, 23)
-}
-
-/**
- * Format Date ke string "YYYY-MM-DD" using local timezone
- */
-const formatDate = (date: Date | null | undefined): string => {
-  if (!date) return ''
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+const normalizeDateOnly = (value: any): string => {
+  if (!value) return ''
+  if (typeof value === 'string') return value.substring(0, 10)
+  if (value instanceof Date) return formatDate(value) || ''
+  return String(value).substring(0, 10)
 }
 
 export const traceabilityService = {
@@ -86,13 +80,25 @@ export const traceabilityService = {
           )
           console.log(`✅ Query successful! Found ${result.length} records`)
 
-          // Format PROD_DATE to date-only string (YYYY-MM-DD)
-          return result.map((row) => ({
-            ...row,
-            PROD_DATE: row.PROD_DATE
-              ? formatDate(new Date(row.PROD_DATE))
-              : null,
-          }))
+          // Format date/datetime columns
+          return result.map((row) => {
+            const formatted: any = { ...row }
+
+            // Format date-only columns (YYYY-MM-DD)
+            const dateOnlyColumns = [
+              'PROD_DATE',
+              'TMMIN_Cell_Measurement_date_Module',
+              'Supplier_Cell_Measurement_date_Module',
+            ]
+
+            dateOnlyColumns.forEach((col) => {
+              if (formatted[col]) {
+                formatted[col] = normalizeDateOnly(formatted[col])
+              }
+            })
+
+            return formatted
+          })
         } catch (error: any) {
           console.error(
             '❌ Error fetching traceability data:',
@@ -132,12 +138,25 @@ export const traceabilityService = {
               console.log(
                 `✅ Retry successful! Found ${retryResult.length} records`,
               )
-              return retryResult.map((row) => ({
-                ...row,
-                PROD_DATE: row.PROD_DATE
-                  ? formatDate(new Date(row.PROD_DATE))
-                  : null,
-              }))
+
+              // Format date/datetime columns (same as main query)
+              return retryResult.map((row) => {
+                const formatted: any = { ...row }
+
+                const dateOnlyColumns = [
+                  'PROD_DATE',
+                  'TMMIN_Cell_Measurement_date_Module',
+                  'Supplier_Cell_Measurement_date_Module',
+                ]
+
+                dateOnlyColumns.forEach((col) => {
+                  if (formatted[col]) {
+                    formatted[col] = normalizeDateOnly(formatted[col])
+                  }
+                })
+
+                return formatted
+              })
             } catch (refreshError: any) {
               console.error(
                 '❌ View refresh or retry failed:',

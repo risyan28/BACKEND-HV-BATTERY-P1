@@ -1,0 +1,75 @@
+# Backend Runtime Update Notes
+
+- Bundle mode: slim
+- Selected from: code-only update
+- Created at: 2026-04-20T09:09:41.763Z
+- Changed files: 61
+
+## Changed Files
+- build-backend-bundle.js
+- build-runtime-bundle.js
+- docs/DB-DESIGN.md
+- docs/WTG-DB-GUIDE.md
+- package.json
+- prisma/schema.prisma
+- read-trigger.sql
+- scripts/sql/compare-objects.ps1
+- scripts/sql/compare-schema.ps1
+- scripts/sql/generate-migration.ps1
+- sql/alter-man-bracket-add-flag.sql
+- sql/alter-man-bracket-add-fmodel-battery.sql
+- sql/alter-man-bracket-add-prod-date-shift.sql
+- sql/alter-man-bracket-drop-unused-columns.sql
+- sql/alter-man-bracket-flag-to-fvalue.sql
+- sql/alter-man-bracket-interlock-password.sql
+- sql/alter-prod-plan-detail-add-columns.sql
+- sql/alter-trigger-plan-detail-add-andon-sync.sql
+- sql/create-man-bracket-interlock-table.sql
+- sql/create-man-bracket-table.sql
+- sql/create-trigger-man-bracket-after-update.sql
+- sql/create-trigger-plan-detail-sync-target.sql
+- sql/drop-old-man-bracket-interlock-m-table.sql
+- sql/enable-change-tracking-man-bracket.sql
+- sql/enable-change-tracking-prod-plan-detail.sql
+- sql/fix-man-bracket-interlock-fid2.sql
+- sql/fix-sp-regenerate-battery-sequence-empty-reset-target.sql
+- sql/fix-target-prod-ftime-received.sql
+- sql/migrate-to-server-2026-03-31.sql
+- sql/normalize-order-type-uppercase.sql
+- sql/rename-man-bracket-interlock-table-to-r.sql
+- sql/sp-refresh-battery-traceability-view.sql
+- sql/test-trigger-single-increment.sql
+- sql/wtg-create-job.sql
+- sql/wtg-create-views.sql
+- sql/wtg-db-install.sql
+- sql/wtg-db-redesign.sql
+- sql/wtg-fix-sp.sql
+- sql/wtg-v2.sql
+- src/app.ts
+- src/controllers/manBracket.controller.ts
+- src/controllers/printHistory.controller.ts
+- src/controllers/productionPlan.controller.ts
+- src/middleware/requestLogger.ts
+- src/prisma.ts
+- src/routes/manBracket.routes.ts
+- src/routes/productionPlan.routes.ts
+- src/schemas/productionPlan.schema.ts
+- src/services/manBracket.service.ts
+- src/services/printHistory.service.ts
+- src/services/productionPlan.service.ts
+- src/services/sequence.service.ts
+- src/services/traceability.service.ts
+- src/utils/cache.ts
+- src/utils/date.ts
+- src/ws/MAN_BRACKET/TB_R_MAN_BRACKET.ws.ts
+- src/ws/PRODUCTION_PLAN/TB_H_PROD_PLAN_DETAIL.ws.ts
+- src/ws/poller.ws.ts
+- src/ws/setup.ts
+- trigger-output.txt
+- tsconfig.json
+
+## Deployment
+- This bundle is overlay-only. Extract on top of an existing backend-runtime folder.
+- Restart PM2 or the Windows service after extract.
+- If Prisma schema changed, run the migration command before starting the service.
+- If deploy fails, restore the previous runtime backup and check logs.

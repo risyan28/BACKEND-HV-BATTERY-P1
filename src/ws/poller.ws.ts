@@ -41,12 +41,17 @@ export function createCTPolling<T>({
   eventName,
   intervalMs = POLLING.INTERVAL_MS, // ✅ Use constant
   pollingLogic,
+  pollingLogicOnChanges,
   onChangeDetected, // ✅ NEW: callback untuk cache invalidation
 }: {
   tableName: string
   eventName: string
   intervalMs?: number
   pollingLogic: (pool: sql.ConnectionPool) => Promise<T>
+  pollingLogicOnChanges?: (
+    pool: sql.ConnectionPool,
+    changes: any[],
+  ) => Promise<T>
   onChangeDetected?: () => Promise<void> // ✅ Optional async callback
 }) {
   let pollingInterval: NodeJS.Timeout | null = null
@@ -98,7 +103,9 @@ export function createCTPolling<T>({
                 await onChangeDetected()
               }
 
-              const snapshot = await pollingLogic(pool)
+              const snapshot = pollingLogicOnChanges
+                ? await pollingLogicOnChanges(pool, result.recordset)
+                : await pollingLogic(pool)
               io.to(room).emit(eventName, snapshot)
               console.log(
                 `📢 [WS] Broadcast ${tableName} to room ${room} (changes: ${result.recordset.length}, newVersion: ${maxVersion})`,
@@ -111,9 +118,16 @@ export function createCTPolling<T>({
             retryCount++
 
             // ✅ Log only essential error info (not full stack trace)
+            const sqlMessage =
+              err?.originalError?.info?.message ||
+              err?.precedingErrors?.[0]?.message ||
+              ''
             const errorMsg = err.code || err.message || 'Unknown error'
+            const detailedError = sqlMessage
+              ? `${errorMsg} - ${sqlMessage}`
+              : errorMsg
             console.error(
-              `⚠️ [WS] Polling error for ${tableName} (attempt ${retryCount}/${POLLING.MAX_RETRIES}): ${errorMsg}`,
+              `⚠️ [WS] Polling error for ${tableName} (attempt ${retryCount}/${POLLING.MAX_RETRIES}): ${detailedError}`,
             )
 
             // ✅ Notify clients about DB issue

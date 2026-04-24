@@ -1,0 +1,24 @@
+-- Create TB_R_MAN_BRACKET table
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[TB_R_MAN_BRACKET]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE [dbo].[TB_R_MAN_BRACKET] (
+        [FID] INT PRIMARY KEY IDENTITY(1,1),
+        [BARCODE] VARCHAR(100),
+        [DESTINATION] VARCHAR(50),
+        [PROD_DATE] DATE NULL,
+        [SHIFT] VARCHAR(50) NULL,
+        [FVALUE] INT NOT NULL DEFAULT 0,
+        [START_TIME] DATETIME,
+        [COMPLETED_TIME] DATETIME NULL
+    )
+
+    -- Create indexes for better query performance
+    CREATE NONCLUSTERED INDEX IX_MAN_BRACKET_BARCODE ON [dbo].[TB_R_MAN_BRACKET]([BARCODE])
+    CREATE NONCLUSTERED INDEX IX_MAN_BRACKET_START_TIME ON [dbo].[TB_R_MAN_BRACKET]([START_TIME] DESC)
+
+    PRINT 'Table TB_R_MAN_BRACKET created successfully.'
+END
+ELSE
+BEGIN
+    PRINT 'Table TB_R_MAN_BRACKET already exists.'
+END

@@ -8,6 +8,7 @@ import {
   savePlanBodySchema,
   generateSequenceParamSchema,
   generateSequenceBodySchema,
+  cycleTimeBodySchema,
 } from '@/schemas/productionPlan.schema'
 
 export const productionPlanController = {
@@ -20,6 +21,26 @@ export const productionPlanController = {
   /** GET /models */
   getModels: asyncHandler(async (_req: Request, res: Response) => {
     const data = await productionPlanService.getModels()
+    res.json(data)
+  }),
+
+  /** GET /cycle-time */
+  getCycleTime: asyncHandler(async (_req: Request, res: Response) => {
+    const data = await productionPlanService.getCycleTime()
+    res.json(data)
+  }),
+
+  /** PUT /cycle-time */
+  setCycleTime: asyncHandler(async (req: Request, res: Response) => {
+    const { cycleTime } = cycleTimeBodySchema.parse(req.body)
+    const data = await productionPlanService.setCycleTime(cycleTime)
+    res.json(data)
+  }),
+
+  /** POST /andon-global/reset-all */
+  resetAndonGlobal: asyncHandler(async (_req: Request, res: Response) => {
+    const data =
+      await productionPlanService.resetAndonGlobalFvalueExceptTaktime()
     res.json(data)
   }),
 

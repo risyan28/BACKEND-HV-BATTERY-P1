@@ -1,0 +1,52 @@
+-- STEP 1: Add INTERLOCK_PASSWORD column if it doesn't exist
+-- Table currently only has: FID, DESTINATION, FUPDATE
+-- Need to add INTERLOCK_PASSWORD column to store passwords
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'TB_R_MAN_BRACKET_INTERLOCK'
+    AND COLUMN_NAME = 'INTERLOCK_PASSWORD'
+)
+BEGIN
+    ALTER TABLE [dbo].[TB_R_MAN_BRACKET_INTERLOCK]
+    ADD [INTERLOCK_PASSWORD] VARCHAR(100) NULL
+    
+    PRINT 'Column INTERLOCK_PASSWORD added successfully'
+END
+ELSE
+BEGIN
+    PRINT 'Column INTERLOCK_PASSWORD already exists'
+END
+GO
+
+-- STEP 2: Update FID=1 (ASSY) with password
+UPDATE [dbo].[TB_R_MAN_BRACKET_INTERLOCK]
+SET [INTERLOCK_PASSWORD] = '12345678',
+    [FUPDATE] = GETDATE()
+WHERE [FID] = 1
+
+PRINT 'FID=1 (ASSY) password set to 12345678'
+GO
+
+-- STEP 3: Update FID=2 to CKD with password
+-- Current data: FID=2 has '12345678' in DESTINATION column (wrong place)
+-- Fix: Move it to INTERLOCK_PASSWORD column
+UPDATE [dbo].[TB_R_MAN_BRACKET_INTERLOCK]
+SET [DESTINATION] = 'CKD',
+    [INTERLOCK_PASSWORD] = '12345678',
+    [FUPDATE] = GETDATE()
+WHERE [FID] = 2
+
+PRINT 'FID=2 (CKD) corrected and password set to 12345678'
+GO
+
+-- STEP 4: Verify result
+SELECT [FID], [DESTINATION], [INTERLOCK_PASSWORD], [FUPDATE]
+FROM [dbo].[TB_R_MAN_BRACKET_INTERLOCK]
+ORDER BY [FID]
+
+PRINT 'Migration complete!'
+GO
+
+

@@ -1,0 +1,831 @@
+/*
+================================================================================
+  DB_TMMIN1_KRW_WTG_HV_BATTERY  –  INSTALL SCRIPT  (DEPRECATED - v1)
+  !! GUNAKAN sql/wtg-v2.sql untuk install terbaru !!
+  File ini disimpan sebagai arsip referensi saja.
+================================================================================
+*/
+/* Script ini telah digantikan oleh wtg-v2.sql (WTG v2 - matematis, gap-proof).
+   Lihat sql/wtg-v2.sql untuk desain terbaru.
+*/
+PRINT 'File ini (wtg-db-install.sql) adalah arsip v1. Gunakan wtg-v2.sql.';
+GO
+RETURN;
+
+USE [DB_TMMIN1_KRW_WTG_HV_BATTERY];
+GO
+SET NOCOUNT ON;
+GO
+
+/* ============================================================
+   0. CREATE LEGACY TABLES IF NOT EXISTS (fresh DB)
+   ============================================================ */
+
+IF OBJECT_ID('TB_LINE_WT','U') IS NULL
+BEGIN
+    CREATE TABLE TB_LINE_WT (
+        LINENAME     VARCHAR(30) NOT NULL,
+        SHIFT        VARCHAR(1)  NOT NULL,
+        FUSED        VARCHAR(1)  NOT NULL DEFAULT '1',
+        WT_START     VARCHAR(8)  NULL,
+        WT_END       VARCHAR(8)  NULL,
+        EXCL_START1  VARCHAR(8)  NULL,
+        EXCL_END1    VARCHAR(8)  NULL,
+        EXCL_START2  VARCHAR(8)  NULL,
+        EXCL_END2    VARCHAR(8)  NULL,
+        EXCL_START3  VARCHAR(8)  NULL,
+        EXCL_END3    VARCHAR(8)  NULL,
+        EXCL_START4  VARCHAR(8)  NULL,
+        EXCL_END4    VARCHAR(8)  NULL,
+        EXCL_START5  VARCHAR(8)  NULL,
+        EXCL_END5    VARCHAR(8)  NULL,
+        FWT_START    VARCHAR(8)  NULL,
+        FWT_END      VARCHAR(8)  NULL,
+        FEXCL_START1 VARCHAR(8)  NULL,
+        FEXCL_END1   VARCHAR(8)  NULL,
+        FEXCL_START2 VARCHAR(8)  NULL,
+        FEXCL_END2   VARCHAR(8)  NULL,
+        FEXCL_START3 VARCHAR(8)  NULL,
+        FEXCL_END3   VARCHAR(8)  NULL,
+        FEXCL_START4 VARCHAR(8)  NULL,
+        FEXCL_END4   VARCHAR(8)  NULL,
+        FEXCL_START5 VARCHAR(8)  NULL,
+        FEXCL_END5   VARCHAR(8)  NULL
+    );
+END
+GO
+
+IF OBJECT_ID('TB_WT_STATUS','U') IS NULL
+BEGIN
+    CREATE TABLE TB_WT_STATUS (
+        FDEV_NAME  VARCHAR(20) NOT NULL,
+        FLINE      VARCHAR(30) NOT NULL,
+        FREG_NAME  VARCHAR(30) NOT NULL,
+        FREG_VALUE VARCHAR(30) NOT NULL,
+        FTR_TIME   DATETIME    NOT NULL DEFAULT GETDATE()
+    );
+END
+GO
+
+IF OBJECT_ID('TB_TIME','U') IS NULL
+BEGIN
+    CREATE TABLE TB_TIME (
+        fid  INT            NOT NULL CONSTRAINT PK_TB_TIME PRIMARY KEY,
+        fnow DATETIMEOFFSET NULL,
+        fodd TINYINT        NULL
+    );
+    INSERT INTO TB_TIME (fid) VALUES (1);
+END
+GO
+
+/* ============================================================
+   1. SCHEMA FIXES ON EXISTING TABLES
+   ============================================================ */
+
+/* 1.1  Resize FEXCL_START/END 4-5 from VARCHAR(50) → VARCHAR(8) */
+IF COL_LENGTH('TB_LINE_WT','FEXCL_START4') > 8
+BEGIN
+    ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_START4 VARCHAR(8) NULL;
+    ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_END4   VARCHAR(8) NULL;
+    ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_START5 VARCHAR(8) NULL;
+    ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_END5   VARCHAR(8) NULL;
+END
+GO
+
+/* 1.2  Allow NULL on all break-slot columns (empty '' → NULL safe) */
+ALTER TABLE TB_LINE_WT ALTER COLUMN EXCL_START1  VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN EXCL_END1    VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN EXCL_START2  VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN EXCL_END2    VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN EXCL_START3  VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN EXCL_END3    VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN EXCL_START4  VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN EXCL_END4    VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN EXCL_START5  VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN EXCL_END5    VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_START1 VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_END1   VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_START2 VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_END2   VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_START3 VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_END3   VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_START4 VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_END4   VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_START5 VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FEXCL_END5   VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FWT_START    VARCHAR(8) NULL;
+ALTER TABLE TB_LINE_WT ALTER COLUMN FWT_END      VARCHAR(8) NULL;
+GO
+
+/* 1.3  PK on TB_LINE_WT */
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID('TB_LINE_WT') AND is_primary_key = 1
+)
+BEGIN
+    WITH CTE AS (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY LINENAME, SHIFT ORDER BY (SELECT NULL)) rn
+        FROM TB_LINE_WT
+    )
+    DELETE FROM CTE WHERE rn > 1;
+
+    ALTER TABLE TB_LINE_WT
+        ADD CONSTRAINT PK_TB_LINE_WT PRIMARY KEY (LINENAME, SHIFT);
+END
+GO
+
+/* 1.4  PK on TB_WT_STATUS */
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID('TB_WT_STATUS') AND is_primary_key = 1
+)
+BEGIN
+    WITH CTE AS (
+        SELECT *, ROW_NUMBER() OVER (
+            PARTITION BY FDEV_NAME, FLINE, FREG_NAME ORDER BY FTR_TIME DESC
+        ) rn
+        FROM TB_WT_STATUS
+    )
+    DELETE FROM CTE WHERE rn > 1;
+
+    ALTER TABLE TB_WT_STATUS
+        ADD CONSTRAINT PK_TB_WT_STATUS PRIMARY KEY (FDEV_NAME, FLINE, FREG_NAME);
+END
+GO
+
+/* 1.5  PK on TB_TIME  (recreate – ALTER COLUMN nullable workaround) */
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID('TB_TIME') AND is_primary_key = 1
+)
+BEGIN
+    CREATE TABLE TB_TIME_NEW (
+        fid  INT            NOT NULL CONSTRAINT PK_TB_TIME PRIMARY KEY,
+        fnow DATETIMEOFFSET NULL,
+        fodd TINYINT        NULL
+    );
+    INSERT INTO TB_TIME_NEW SELECT ISNULL(fid, 1), fnow, fodd FROM TB_TIME;
+    DROP TABLE TB_TIME;
+    EXEC sp_rename 'TB_TIME_NEW', 'TB_TIME';
+END
+GO
+
+/* ============================================================
+   2. NEW TABLES
+   ============================================================ */
+
+/* 2.1  TB_SHIFT_DEFINITION – master shift schedule per line */
+IF OBJECT_ID('TB_SHIFT_DEFINITION','U') IS NULL
+BEGIN
+    CREATE TABLE TB_SHIFT_DEFINITION (
+        SHIFT_ID        INT          IDENTITY(1,1) NOT NULL,
+        LINENAME        VARCHAR(30)  NOT NULL,
+        SHIFT_NO        TINYINT      NOT NULL,        -- 1, 2, 3 …
+        SHIFT_LABEL     VARCHAR(20)  NOT NULL,        -- 'Day', 'Night', …
+        WT_START        TIME(0)      NOT NULL,        -- e.g. 07:20
+        WT_END          TIME(0)      NOT NULL,        -- e.g. 20:00
+        IS_FRIDAY_SCHED BIT          NOT NULL DEFAULT 0,
+        FWT_START       TIME(0)      NULL,            -- Friday override start
+        FWT_END         TIME(0)      NULL,            -- Friday override end
+        IS_ACTIVE       BIT          NOT NULL DEFAULT 1,
+        CREATED_AT      DATETIME     NOT NULL DEFAULT GETDATE(),
+        UPDATED_AT      DATETIME     NOT NULL DEFAULT GETDATE(),
+        CONSTRAINT PK_TB_SHIFT_DEFINITION  PRIMARY KEY (SHIFT_ID),
+        CONSTRAINT UQ_TB_SHIFT_DEFINITION  UNIQUE (LINENAME, SHIFT_NO),
+        CONSTRAINT CHK_SHIFT_NO CHECK (SHIFT_NO BETWEEN 1 AND 9)
+    );
+END
+GO
+
+/* 2.2  TB_BREAK_SLOT – flexible, unlimited breaks per shift */
+IF OBJECT_ID('TB_BREAK_SLOT','U') IS NULL
+BEGIN
+    CREATE TABLE TB_BREAK_SLOT (
+        BREAK_ID        INT         IDENTITY(1,1) NOT NULL,
+        SHIFT_ID        INT         NOT NULL,
+        BREAK_SEQ       TINYINT     NOT NULL,        -- display order
+        BREAK_LABEL     VARCHAR(30) NULL,            -- 'Lunch', 'Rest 1', …
+        BREAK_START     TIME(0)     NOT NULL,
+        BREAK_END       TIME(0)     NOT NULL,
+        IS_FRIDAY_BREAK BIT         NOT NULL DEFAULT 0,
+        IS_ACTIVE       BIT         NOT NULL DEFAULT 1,
+        CONSTRAINT PK_TB_BREAK_SLOT  PRIMARY KEY (BREAK_ID),
+        CONSTRAINT UQ_TB_BREAK_SLOT  UNIQUE (SHIFT_ID, BREAK_SEQ, IS_FRIDAY_BREAK),
+        CONSTRAINT FK_BREAK_SHIFT    FOREIGN KEY (SHIFT_ID)
+            REFERENCES TB_SHIFT_DEFINITION(SHIFT_ID),
+        CONSTRAINT CHK_BREAK_TIMES   CHECK (BREAK_START <> BREAK_END)
+    );
+END
+GO
+
+/* 2.3  TB_OVERTIME_SESSION – tracks open/closed overtime per line */
+IF OBJECT_ID('TB_OVERTIME_SESSION','U') IS NULL
+BEGIN
+    CREATE TABLE TB_OVERTIME_SESSION (
+        OT_ID       INT          IDENTITY(1,1) NOT NULL,
+        LINENAME    VARCHAR(30)  NOT NULL,
+        SHIFT_ID    INT          NOT NULL,
+        OT_DATE     DATE         NOT NULL,           -- logical shift date
+        OT_START    DATETIME     NOT NULL,           -- when OT began
+        OT_END      DATETIME     NULL,               -- NULL = still open
+        OT_SECONDS  INT          NOT NULL DEFAULT 0, -- accumulated seconds
+        OT_REASON   VARCHAR(100) NULL,
+        CREATED_BY  VARCHAR(30)  NOT NULL DEFAULT 'SP_WTG_DB',
+        CONSTRAINT PK_TB_OT_SESSION PRIMARY KEY (OT_ID),
+        CONSTRAINT FK_OT_SHIFT FOREIGN KEY (SHIFT_ID)
+            REFERENCES TB_SHIFT_DEFINITION(SHIFT_ID)
+    );
+    CREATE INDEX IX_OT_LINE_DATE ON TB_OVERTIME_SESSION (LINENAME, OT_DATE);
+END
+GO
+
+/* 2.4  TB_WT_LOG – optional audit log (insert from app as needed) */
+IF OBJECT_ID('TB_WT_LOG','U') IS NULL
+BEGIN
+    CREATE TABLE TB_WT_LOG (
+        LOG_ID          BIGINT   IDENTITY(1,1) NOT NULL,
+        LINENAME        VARCHAR(30) NOT NULL,
+        LOG_TS          DATETIME    NOT NULL DEFAULT GETDATE(),
+        SHIFT_NO        TINYINT     NULL,
+        IS_WORKING      BIT         NOT NULL DEFAULT 0,
+        IS_BREAK        BIT         NOT NULL DEFAULT 0,
+        IS_OVERTIME     BIT         NOT NULL DEFAULT 0,
+        WT_SECONDS_SNAP INT         NULL,
+        CONSTRAINT PK_TB_WT_LOG PRIMARY KEY (LOG_ID)
+    );
+    CREATE INDEX IX_WT_LOG_LINE_TS ON TB_WT_LOG (LINENAME, LOG_TS DESC);
+END
+GO
+
+/* ============================================================
+   3. HELPER FUNCTIONS
+   ============================================================ */
+
+/* 3.1  fn_ResolveShiftDateTime
+        Converts a TIME string to an absolute DATETIME on "today",
+        correctly adding +1 day for midnight-crossing shift-end times.
+        NOTE: TRY_CAST used instead of TRY/CATCH (not allowed in scalar fn). */
+IF OBJECT_ID('dbo.fn_ResolveShiftDateTime','FN') IS NOT NULL
+    DROP FUNCTION dbo.fn_ResolveShiftDateTime;
+GO
+
+CREATE FUNCTION dbo.fn_ResolveShiftDateTime (
+    @time_str  VARCHAR(8),  -- 'HH:MM'
+    @anchor_dt DATETIME,    -- reference point (GETDATE())
+    @is_end    BIT,         -- 1 = shift-end, 0 = shift-start
+    @start_str VARCHAR(8)   -- shift-start time (only used when @is_end=1)
+)
+RETURNS DATETIME
+AS
+BEGIN
+    IF @time_str IS NULL OR LEN(LTRIM(RTRIM(@time_str))) < 5 RETURN NULL;
+
+    DECLARE @base DATE    = CAST(@anchor_dt AS DATE);
+    DECLARE @t    TIME(0) = TRY_CAST(@time_str  AS TIME(0));
+    DECLARE @ts   TIME(0) = TRY_CAST(@start_str AS TIME(0));
+
+    IF @t IS NULL RETURN NULL;
+
+    IF @is_end = 0
+        RETURN CAST(@base AS DATETIME) + CAST(@t AS DATETIME);
+
+    -- End time: next calendar day when end < start (e.g. 20:00 → 06:45)
+    IF @ts IS NULL OR @t >= @ts
+        RETURN CAST(@base AS DATETIME) + CAST(@t AS DATETIME);
+
+    RETURN CAST(DATEADD(DAY, 1, @base) AS DATETIME) + CAST(@t AS DATETIME);
+END;
+GO
+
+/* 3.2  fn_IsInBreak
+        Returns 1 if current TIME falls inside any active break for a shift. */
+IF OBJECT_ID('dbo.fn_IsInBreak','FN') IS NOT NULL
+    DROP FUNCTION dbo.fn_IsInBreak;
+GO
+
+CREATE FUNCTION dbo.fn_IsInBreak (
+    @shift_id  INT,
+    @now       TIME(0),
+    @is_friday BIT
+)
+RETURNS BIT
+AS
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM TB_BREAK_SLOT
+        WHERE SHIFT_ID = @shift_id
+          AND IS_ACTIVE = 1
+          AND (IS_FRIDAY_BREAK = 0 OR IS_FRIDAY_BREAK = @is_friday)
+          AND @now >= BREAK_START   -- inclusive start
+          AND @now <  BREAK_END     -- exclusive end
+    )
+        RETURN 1;
+    RETURN 0;
+END;
+GO
+
+/* ============================================================
+   4. VIEWS
+   ============================================================ */
+
+/* Keep old views under _LEGACY name on first run */
+IF OBJECT_ID('V_LINE_WT_A_LEGACY','V') IS NULL AND OBJECT_ID('V_LINE_WT_A','V') IS NOT NULL
+    EXEC sp_rename 'V_LINE_WT_A', 'V_LINE_WT_A_LEGACY';
+GO
+IF OBJECT_ID('V_LINE_WT_B_LEGACY','V') IS NULL AND OBJECT_ID('V_LINE_WT_B','V') IS NOT NULL
+    EXEC sp_rename 'V_LINE_WT_B', 'V_LINE_WT_B_LEGACY';
+GO
+
+IF OBJECT_ID('V_WORK_STATUS','V') IS NOT NULL DROP VIEW V_WORK_STATUS;
+GO
+IF OBJECT_ID('V_LINE_WT_B','V')   IS NOT NULL DROP VIEW V_LINE_WT_B;
+GO
+IF OBJECT_ID('V_LINE_WT_A','V')   IS NOT NULL DROP VIEW V_LINE_WT_A;
+GO
+
+/* 4.1  V_LINE_WT_A – resolved shift DATETIME windows per active shift */
+CREATE VIEW V_LINE_WT_A AS
+SELECT
+    sd.SHIFT_ID,
+    sd.LINENAME,
+    sd.SHIFT_NO                                                    AS SHIFT,
+    sd.SHIFT_LABEL,
+    GETDATE()                                                      AS FNOW,
+    dbo.fn_ResolveShiftDateTime(
+        CONVERT(VARCHAR(8),sd.WT_START,108), GETDATE(), 0,
+        CONVERT(VARCHAR(8),sd.WT_START,108))                       AS WT_START_DT,
+    dbo.fn_ResolveShiftDateTime(
+        CONVERT(VARCHAR(8),sd.WT_END,108),   GETDATE(), 1,
+        CONVERT(VARCHAR(8),sd.WT_START,108))                       AS WT_END_DT,
+    CASE WHEN sd.IS_FRIDAY_SCHED=1 AND sd.FWT_START IS NOT NULL
+         THEN dbo.fn_ResolveShiftDateTime(CONVERT(VARCHAR(8),sd.FWT_START,108),GETDATE(),0,CONVERT(VARCHAR(8),sd.FWT_START,108))
+         ELSE dbo.fn_ResolveShiftDateTime(CONVERT(VARCHAR(8),sd.WT_START,108), GETDATE(),0,CONVERT(VARCHAR(8),sd.WT_START,108))
+    END                                                            AS FWT_START_DT,
+    CASE WHEN sd.IS_FRIDAY_SCHED=1 AND sd.FWT_END IS NOT NULL
+         THEN dbo.fn_ResolveShiftDateTime(CONVERT(VARCHAR(8),sd.FWT_END,108),  GETDATE(),1,CONVERT(VARCHAR(8),sd.FWT_START,108))
+         ELSE dbo.fn_ResolveShiftDateTime(CONVERT(VARCHAR(8),sd.WT_END,108),   GETDATE(),1,CONVERT(VARCHAR(8),sd.WT_START,108))
+    END                                                            AS FWT_END_DT,
+    sd.IS_FRIDAY_SCHED,
+    dbo.fn_IsInBreak(sd.SHIFT_ID, CAST(GETDATE() AS TIME(0)), 0)  AS IS_IN_BREAK,
+    dbo.fn_IsInBreak(sd.SHIFT_ID, CAST(GETDATE() AS TIME(0)), 1)  AS IS_IN_FRIDAY_BREAK
+FROM TB_SHIFT_DEFINITION sd
+WHERE sd.IS_ACTIVE = 1;
+GO
+
+/* 4.2  V_LINE_WT_B – real-time status per shift + overtime flag */
+CREATE VIEW V_LINE_WT_B AS
+WITH base AS (
+    SELECT a.SHIFT_ID, a.LINENAME, a.SHIFT, a.SHIFT_LABEL, a.FNOW,
+           a.WT_START_DT, a.WT_END_DT, a.FWT_START_DT, a.FWT_END_DT,
+           a.IS_FRIDAY_SCHED, a.IS_IN_BREAK, a.IS_IN_FRIDAY_BREAK,
+           DATEPART(WEEKDAY, GETDATE()) AS DOW
+    FROM V_LINE_WT_A a
+)
+SELECT
+    b.SHIFT_ID, b.LINENAME, b.SHIFT, b.SHIFT_LABEL, b.FNOW,
+    b.WT_START_DT,
+    b.WT_END_DT,
+    CAST(CASE WHEN b.FNOW >= b.WT_START_DT AND b.FNOW < b.WT_END_DT
+              THEN 1 ELSE 0 END AS BIT)                               AS WT_TIME,
+    CAST(b.IS_IN_BREAK AS BIT)                                        AS IS_BREAK,
+    b.FWT_START_DT,
+    b.FWT_END_DT,
+    CAST(CASE WHEN b.DOW=6 AND b.IS_FRIDAY_SCHED=1
+                   AND b.FNOW>=b.FWT_START_DT AND b.FNOW<b.FWT_END_DT
+              THEN 1 ELSE 0 END AS BIT)                               AS FWT_TIME,
+    CAST(b.IS_IN_FRIDAY_BREAK AS BIT)                                 AS FBREAK,
+    CAST(CASE WHEN ot.OT_ID IS NOT NULL THEN 1 ELSE 0 END AS BIT)     AS IS_OVERTIME,
+    ot.OT_ID,
+    ot.OT_START,
+    ot.OT_SECONDS,
+    CAST(ISNULL((SELECT TRY_CAST(ws.FREG_VALUE AS INT)
+                 FROM TB_WT_STATUS ws
+                 WHERE ws.FDEV_NAME='WTG' AND ws.FLINE=b.LINENAME
+                   AND ws.FREG_NAME='WT'), 0) AS INT)                 AS WT_SECONDS
+FROM base b
+LEFT JOIN TB_OVERTIME_SESSION ot
+    ON  ot.LINENAME = b.LINENAME
+    AND ot.SHIFT_ID = b.SHIFT_ID
+    AND ot.OT_END   IS NULL
+    AND CAST(ot.OT_START AS DATE) = CAST(GETDATE() AS DATE);
+GO
+
+/* 4.3  V_WORK_STATUS – single-row-per-line dashboard view */
+CREATE VIEW V_WORK_STATUS AS
+SELECT
+    b.LINENAME,
+    b.SHIFT,
+    b.SHIFT_LABEL,
+    b.FNOW,
+    CASE
+        WHEN b.IS_OVERTIME=1                         THEN 'OVERTIME'
+        WHEN b.WT_TIME=1  AND b.IS_BREAK=0           THEN 'WORKING'
+        WHEN b.WT_TIME=1  AND b.IS_BREAK=1           THEN 'BREAK'
+        WHEN b.FWT_TIME=1 AND b.FBREAK=0             THEN 'WORKING'
+        WHEN b.FWT_TIME=1 AND b.FBREAK=1             THEN 'BREAK'
+        ELSE                                              'IDLE'
+    END                                                   AS WORK_MODE,
+    b.WT_SECONDS,
+    b.IS_BREAK,
+    b.IS_OVERTIME,
+    b.OT_SECONDS,
+    CAST(CASE
+        WHEN CAST(b.WT_START_DT AS TIME(0)) > CAST('12:00' AS TIME(0))
+             AND CAST(b.FNOW AS TIME(0)) < CAST('12:00' AS TIME(0))
+        THEN CAST(DATEADD(DAY,-1,CAST(b.FNOW AS DATE)) AS DATE)
+        ELSE CAST(b.FNOW AS DATE)
+    END AS DATE)                                          AS SHIFT_DATE,
+    b.WT_START_DT,
+    b.WT_END_DT
+FROM V_LINE_WT_B b
+WHERE b.WT_TIME=1 OR b.FWT_TIME=1 OR b.IS_OVERTIME=1;
+GO
+
+/* ============================================================
+   5. STORED PROCEDURES
+   ============================================================ */
+
+/* 5.1  SP_WTG_DB – 1-second ticker: count working seconds */
+IF OBJECT_ID('SP_WTG_DB','P') IS NOT NULL DROP PROCEDURE SP_WTG_DB;
+GO
+
+CREATE PROCEDURE [dbo].[SP_WTG_DB]
+    @VLINE VARCHAR(30) = 'ADAPTIVE'
+AS
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+
+DECLARE
+    @WT      TINYINT = 0,
+    @SHIFTN  TINYINT = 0,
+    @BREAKN  TINYINT = 0,
+    @FRIDAY  TINYINT = 0,
+    @VINFO   INT     = 0,
+    @DATE_NO INT     = 0,
+    @SHIFT_ID INT    = NULL,
+    @IS_OT   BIT     = 0,
+    @OT_ID   INT     = NULL;
+
+DECLARE @DATE_SHIFT VARCHAR(10);
+DECLARE @DATE_TODAY VARCHAR(10);
+
+/* Day-of-week (use stored DATE SHIFT after 20:00 for night-shift accuracy) */
+IF DATEPART(HOUR, GETDATE()) < 20
+    SET @DATE_NO = DATEPART(WEEKDAY, GETDATE())
+ELSE
+    SELECT TOP 1 @DATE_NO = DATEPART(WEEKDAY, TRY_CAST(FREG_VALUE AS DATE))
+    FROM TB_WT_STATUS
+    WHERE FREG_NAME='DATE SHIFT' AND FLINE=@VLINE;
+
+SET @FRIDAY = CASE WHEN @DATE_NO = 6 THEN 1 ELSE 0 END;
+
+BEGIN TRY
+    DECLARE @CNT1 TINYINT = 0;
+
+    IF @FRIDAY = 1
+        SELECT @CNT1=COUNT(*) FROM V_LINE_WT_B WHERE FWT_TIME=1 AND LINENAME=@VLINE;
+    ELSE
+        SELECT @CNT1=COUNT(*) FROM V_LINE_WT_B WHERE WT_TIME=1  AND LINENAME=@VLINE;
+
+    IF @CNT1 > 0
+    BEGIN
+        IF @FRIDAY = 1
+            SELECT @SHIFTN=SHIFT, @BREAKN=FBREAK,    @SHIFT_ID=SHIFT_ID
+            FROM V_LINE_WT_B WHERE FWT_TIME=1 AND LINENAME=@VLINE;
+        ELSE
+            SELECT @SHIFTN=SHIFT, @BREAKN=IS_BREAK,  @SHIFT_ID=SHIFT_ID
+            FROM V_LINE_WT_B WHERE WT_TIME=1  AND LINENAME=@VLINE;
+        SET @WT = 1;
+    END
+
+    /* Open overtime? */
+    SELECT TOP 1 @OT_ID=OT_ID, @IS_OT=1
+    FROM TB_OVERTIME_SESSION
+    WHERE LINENAME=@VLINE AND OT_END IS NULL
+      AND CAST(OT_START AS DATE)=CAST(GETDATE() AS DATE)
+    ORDER BY OT_ID DESC;
+
+    /* VINFO bitmask: bit0-1=shift, bit2=working, bit3=break, bit4=overtime */
+    IF @BREAKN > 0 SET @VINFO = @VINFO + 8;
+    IF @WT     > 0 SET @VINFO = @VINFO + 4;
+    IF @IS_OT  = 1 SET @VINFO = @VINFO + 16;
+    SET @VINFO = @VINFO + @SHIFTN;
+
+    /* Dates */
+    SET @DATE_SHIFT = CASE
+        WHEN @SHIFTN = 2 AND DATEPART(HOUR,GETDATE()) < 12
+            THEN CONVERT(CHAR(10), DATEADD(DAY,-1,CAST(GETDATE() AS DATE)), 126)
+        ELSE CONVERT(CHAR(10), GETDATE(), 126)
+    END;
+
+    SET @DATE_TODAY = CASE
+        WHEN DATEPART(HOUR,GETDATE()) <= 6
+            THEN CONVERT(CHAR(10), DATEADD(DAY,-1,CAST(GETDATE() AS DATE)), 126)
+        ELSE CONVERT(CHAR(10), GETDATE(), 126)
+    END;
+
+    /* Increment or reset */
+    IF @WT = 0 AND @IS_OT = 0
+    BEGIN
+        UPDATE TB_WT_STATUS SET FTR_TIME=GETDATE(), FREG_VALUE='0'
+        WHERE FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='SHIFT';
+
+        UPDATE TB_WT_STATUS SET FTR_TIME=GETDATE(), FREG_VALUE='0'
+        WHERE FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='INFO';
+    END
+    ELSE
+    BEGIN
+        IF @BREAKN = 0
+        BEGIN
+            /* Increment WT seconds counter */
+            UPDATE TB_WT_STATUS
+            SET    FTR_TIME=GETDATE(),
+                   FREG_VALUE=CAST(ISNULL(TRY_CAST(FREG_VALUE AS INT),0)+1 AS VARCHAR(30))
+            WHERE  FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='WT';
+
+            /* Also increment OT counter */
+            IF @IS_OT=1 AND @OT_ID IS NOT NULL
+                UPDATE TB_OVERTIME_SESSION SET OT_SECONDS=OT_SECONDS+1 WHERE OT_ID=@OT_ID;
+        END
+
+        UPDATE TB_WT_STATUS SET FTR_TIME=GETDATE(), FREG_VALUE=CAST(@SHIFTN AS VARCHAR)
+        WHERE FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='SHIFT';
+
+        UPDATE TB_WT_STATUS SET FTR_TIME=GETDATE(), FREG_VALUE=CAST(@SHIFTN AS VARCHAR)
+        WHERE FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='LAST SHIFT';
+
+        UPDATE TB_WT_STATUS SET FTR_TIME=GETDATE(), FREG_VALUE=CAST(@VINFO AS VARCHAR)
+        WHERE FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='INFO';
+
+        UPDATE TB_WT_STATUS SET FTR_TIME=GETDATE(), FREG_VALUE=@DATE_SHIFT
+        WHERE FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='DATE SHIFT';
+    END
+
+    /* Always update calendar date */
+    UPDATE TB_WT_STATUS SET FTR_TIME=GETDATE(), FREG_VALUE=@DATE_TODAY
+    WHERE FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='DATE';
+
+    /* Reset guard: reset WT once per reset window (not 10x) */
+    DECLARE @LAST_RESET DATETIME;
+    SELECT @LAST_RESET=TRY_CAST(FREG_VALUE AS DATETIME)
+    FROM TB_WT_STATUS WHERE FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='RESET_TS';
+
+    IF DATEPART(SECOND,GETDATE()) <= 10
+    AND (
+        (DATEPART(HOUR,GETDATE())=19 AND DATEPART(MINUTE,GETDATE())=55)
+     OR (DATEPART(HOUR,GETDATE())= 7 AND DATEPART(MINUTE,GETDATE())= 5)
+    )
+    AND (@LAST_RESET IS NULL OR DATEDIFF(MINUTE,@LAST_RESET,GETDATE()) > 5)
+    BEGIN
+        UPDATE TB_WT_STATUS SET FREG_VALUE='0'
+        WHERE FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='WT';
+
+        IF EXISTS (SELECT 1 FROM TB_WT_STATUS WHERE FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='RESET_TS')
+            UPDATE TB_WT_STATUS SET FTR_TIME=GETDATE(), FREG_VALUE=CONVERT(VARCHAR(30),GETDATE(),120)
+            WHERE  FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='RESET_TS';
+        ELSE
+            INSERT INTO TB_WT_STATUS (FDEV_NAME,FLINE,FREG_NAME,FREG_VALUE,FTR_TIME)
+            VALUES ('WTG',@VLINE,'RESET_TS',CONVERT(VARCHAR(30),GETDATE(),120),GETDATE());
+    END
+
+    /* Update DATE NOW every 2 seconds */
+    IF DATEPART(SECOND,GETDATE()) % 2 = 1
+        UPDATE TB_WT_STATUS
+        SET    FTR_TIME=GETDATE(),
+               FREG_VALUE=CONVERT(VARCHAR(30),CAST(GETDATE() AS DATE),126)
+        WHERE  FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='DATE NOW';
+
+END TRY
+BEGIN CATCH
+    /* Log error (truncated to fit FREG_VALUE VARCHAR(30)) */
+    DECLARE @EMSG VARCHAR(30) = LEFT(ERROR_MESSAGE(), 30);
+    IF EXISTS (SELECT 1 FROM TB_WT_STATUS WHERE FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='LAST_ERR')
+        UPDATE TB_WT_STATUS SET FTR_TIME=GETDATE(), FREG_VALUE=@EMSG
+        WHERE  FDEV_NAME='WTG' AND FLINE=@VLINE AND FREG_NAME='LAST_ERR';
+    ELSE
+        INSERT INTO TB_WT_STATUS (FDEV_NAME,FLINE,FREG_NAME,FREG_VALUE,FTR_TIME)
+        VALUES ('WTG',@VLINE,'LAST_ERR',@EMSG,GETDATE());
+END CATCH;
+GO
+
+/* 5.2  SP_WTG_OVERTIME_OPEN – supervisor opens an OT session */
+IF OBJECT_ID('SP_WTG_OVERTIME_OPEN','P') IS NOT NULL DROP PROCEDURE SP_WTG_OVERTIME_OPEN;
+GO
+
+CREATE PROCEDURE [dbo].[SP_WTG_OVERTIME_OPEN]
+    @VLINE  VARCHAR(30)  = 'ADAPTIVE',
+    @REASON VARCHAR(100) = NULL
+AS
+SET NOCOUNT ON;
+DECLARE @SHIFT_ID INT;
+DECLARE @OT_DATE  DATE = CAST(GETDATE() AS DATE);
+
+SELECT @SHIFT_ID = sd.SHIFT_ID
+FROM TB_SHIFT_DEFINITION sd
+JOIN TB_WT_STATUS         ws
+    ON ws.FLINE=@VLINE AND ws.FREG_NAME='LAST SHIFT'
+    AND TRY_CAST(ws.FREG_VALUE AS TINYINT) = sd.SHIFT_NO
+WHERE sd.LINENAME=@VLINE AND sd.IS_ACTIVE=1;
+
+IF @SHIFT_ID IS NULL
+BEGIN
+    RAISERROR('Cannot open OT: no active shift found for line %s.', 16, 1, @VLINE);
+    RETURN;
+END
+
+IF EXISTS (
+    SELECT 1 FROM TB_OVERTIME_SESSION
+    WHERE LINENAME=@VLINE AND OT_END IS NULL
+      AND CAST(OT_START AS DATE)=@OT_DATE
+)
+BEGIN
+    RAISERROR('OT already open for line %s today.', 16, 1, @VLINE);
+    RETURN;
+END
+
+INSERT INTO TB_OVERTIME_SESSION (LINENAME,SHIFT_ID,OT_DATE,OT_START,OT_REASON)
+VALUES (@VLINE,@SHIFT_ID,@OT_DATE,GETDATE(),@REASON);
+
+PRINT 'Overtime opened for line: ' + @VLINE;
+GO
+
+/* 5.3  SP_WTG_OVERTIME_CLOSE – close current OT session */
+IF OBJECT_ID('SP_WTG_OVERTIME_CLOSE','P') IS NOT NULL DROP PROCEDURE SP_WTG_OVERTIME_CLOSE;
+GO
+
+CREATE PROCEDURE [dbo].[SP_WTG_OVERTIME_CLOSE]
+    @VLINE VARCHAR(30) = 'ADAPTIVE'
+AS
+SET NOCOUNT ON;
+DECLARE @OT_ID INT;
+
+SELECT TOP 1 @OT_ID=OT_ID FROM TB_OVERTIME_SESSION
+WHERE LINENAME=@VLINE AND OT_END IS NULL
+ORDER BY OT_ID DESC;
+
+IF @OT_ID IS NULL
+BEGIN
+    RAISERROR('No open OT session for line %s.', 16, 1, @VLINE);
+    RETURN;
+END
+
+UPDATE TB_OVERTIME_SESSION SET OT_END=GETDATE() WHERE OT_ID=@OT_ID;
+
+SELECT OT_ID, LINENAME, OT_START, OT_END, OT_SECONDS,
+       CONVERT(VARCHAR(8), DATEADD(SECOND, OT_SECONDS, 0), 108) AS OT_DURATION_HMS
+FROM TB_OVERTIME_SESSION WHERE OT_ID=@OT_ID;
+GO
+
+/* ============================================================
+   6. SQL AGENT JOB  (drop + recreate, idempotent)
+   ============================================================ */
+
+USE msdb;
+GO
+
+IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name=N'WTG_DB_BATTERY_TICKER')
+    EXEC msdb.dbo.sp_delete_job @job_name=N'WTG_DB_BATTERY_TICKER', @delete_unused_schedules=1;
+GO
+
+EXEC msdb.dbo.sp_add_job
+    @job_name   = N'WTG_DB_BATTERY_TICKER',
+    @enabled    = 1,
+    @description= N'Executes SP_WTG_DB every second to maintain working-time counter';
+
+EXEC msdb.dbo.sp_add_jobstep
+    @job_name      = N'WTG_DB_BATTERY_TICKER',
+    @step_name     = N'Tick',
+    @subsystem     = N'TSQL',
+    @database_name = N'DB_TMMIN1_KRW_WTG_HV_BATTERY',
+    @command       = N'
+-- Time-based loop: berjalan sampai 57 detik dari start,
+-- sehingga job selalu selesai sebelum schedule 60-detik berikutnya.
+-- Mencegah SQL Agent skip jadwal akibat job masih running saat fire.
+DECLARE @run_until DATETIME = DATEADD(SECOND, 57, GETDATE());
+WHILE GETDATE() < @run_until
+BEGIN
+    EXEC dbo.SP_WTG_DB @VLINE = ''ADAPTIVE'';
+    WAITFOR DELAY ''00:00:01'';
+END',
+    @on_success_action = 1,
+    @on_fail_action    = 2;
+
+EXEC msdb.dbo.sp_add_schedule
+    @schedule_name        = N'WTG_Every_Minute',
+    @freq_type            = 4,
+    @freq_interval        = 1,
+    @freq_subday_type     = 4,
+    @freq_subday_interval = 1,
+    @active_start_time    = 000000,
+    @active_end_time      = 235959;
+
+EXEC msdb.dbo.sp_attach_schedule
+    @job_name      = N'WTG_DB_BATTERY_TICKER',
+    @schedule_name = N'WTG_Every_Minute';
+
+EXEC msdb.dbo.sp_add_jobserver
+    @job_name    = N'WTG_DB_BATTERY_TICKER',
+    @server_name = N'(local)';
+GO
+
+USE [DB_TMMIN1_KRW_WTG_HV_BATTERY];
+GO
+
+/* ============================================================
+   7. SEED DATA  (skip if already exists)
+   ============================================================ */
+
+IF NOT EXISTS (SELECT 1 FROM TB_SHIFT_DEFINITION WHERE LINENAME='ADAPTIVE' AND SHIFT_NO=1)
+    INSERT INTO TB_SHIFT_DEFINITION (LINENAME,SHIFT_NO,SHIFT_LABEL,WT_START,WT_END,IS_FRIDAY_SCHED,FWT_START,FWT_END,IS_ACTIVE)
+    VALUES ('ADAPTIVE',1,'Day',   '07:20','20:00', 1,'07:20','20:00', 1);
+
+IF NOT EXISTS (SELECT 1 FROM TB_SHIFT_DEFINITION WHERE LINENAME='ADAPTIVE' AND SHIFT_NO=2)
+    INSERT INTO TB_SHIFT_DEFINITION (LINENAME,SHIFT_NO,SHIFT_LABEL,WT_START,WT_END,IS_FRIDAY_SCHED,FWT_START,FWT_END,IS_ACTIVE)
+    VALUES ('ADAPTIVE',2,'Night', '20:00','06:45', 1,'21:00','06:45', 1);
+GO
+
+DECLARE @S1 INT = (SELECT SHIFT_ID FROM TB_SHIFT_DEFINITION WHERE LINENAME='ADAPTIVE' AND SHIFT_NO=1);
+DECLARE @S2 INT = (SELECT SHIFT_ID FROM TB_SHIFT_DEFINITION WHERE LINENAME='ADAPTIVE' AND SHIFT_NO=2);
+
+/* Day shift – regular breaks */
+IF @S1 IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S1 AND BREAK_SEQ=1 AND IS_FRIDAY_BREAK=0)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S1,1,'Rest 1',  '09:30','09:40',0,1);
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S1 AND BREAK_SEQ=2 AND IS_FRIDAY_BREAK=0)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S1,2,'Lunch',   '11:45','12:30',0,1);
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S1 AND BREAK_SEQ=3 AND IS_FRIDAY_BREAK=0)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S1,3,'Rest 2',  '14:30','14:40',0,1);
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S1 AND BREAK_SEQ=4 AND IS_FRIDAY_BREAK=0)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S1,4,'Rest 3',  '18:00','18:15',0,1);
+    /* Day shift – Friday breaks */
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S1 AND BREAK_SEQ=1 AND IS_FRIDAY_BREAK=1)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S1,1,'Rest 1',  '09:30','09:40',1,1);
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S1 AND BREAK_SEQ=2 AND IS_FRIDAY_BREAK=1)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S1,2,'Lunch',   '11:45','13:00',1,1);  -- longer
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S1 AND BREAK_SEQ=3 AND IS_FRIDAY_BREAK=1)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S1,3,'Rest 2',  '14:30','14:40',1,1);
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S1 AND BREAK_SEQ=4 AND IS_FRIDAY_BREAK=1)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S1,4,'Rest 3',  '16:30','16:45',1,1);
+END
+
+/* Night shift – regular breaks */
+IF @S2 IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S2 AND BREAK_SEQ=1 AND IS_FRIDAY_BREAK=0)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S2,1,'Rest 1',  '22:00','22:10',0,1);
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S2 AND BREAK_SEQ=2 AND IS_FRIDAY_BREAK=0)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S2,2,'Dinner',  '00:00','00:20',0,1);
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S2 AND BREAK_SEQ=3 AND IS_FRIDAY_BREAK=0)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S2,3,'Rest 2',  '02:30','02:40',0,1);
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S2 AND BREAK_SEQ=4 AND IS_FRIDAY_BREAK=0)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S2,4,'Rest 3',  '04:30','04:45',0,1);
+    /* Night shift – Friday breaks */
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S2 AND BREAK_SEQ=1 AND IS_FRIDAY_BREAK=1)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S2,1,'Rest 1',  '22:00','22:10',1,1);
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S2 AND BREAK_SEQ=2 AND IS_FRIDAY_BREAK=1)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S2,2,'Dinner',  '00:00','00:30',1,1);
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S2 AND BREAK_SEQ=3 AND IS_FRIDAY_BREAK=1)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S2,3,'Rest 2',  '02:00','02:10',1,1);
+    IF NOT EXISTS (SELECT 1 FROM TB_BREAK_SLOT WHERE SHIFT_ID=@S2 AND BREAK_SEQ=4 AND IS_FRIDAY_BREAK=1)
+        INSERT INTO TB_BREAK_SLOT VALUES (@S2,4,'Rest 3',  '04:30','04:45',1,1);
+END
+GO
+
+/* ============================================================
+   8. PERMISSIONS for SQL Agent service account
+   ============================================================ */
+
+GRANT EXECUTE ON dbo.SP_WTG_DB              TO [NT SERVICE\SQLSERVERAGENT];
+GRANT EXECUTE ON dbo.SP_WTG_OVERTIME_OPEN   TO [NT SERVICE\SQLSERVERAGENT];
+GRANT EXECUTE ON dbo.SP_WTG_OVERTIME_CLOSE  TO [NT SERVICE\SQLSERVERAGENT];
+GRANT EXECUTE ON dbo.fn_ResolveShiftDateTime TO [NT SERVICE\SQLSERVERAGENT];
+GRANT EXECUTE ON dbo.fn_IsInBreak            TO [NT SERVICE\SQLSERVERAGENT];
+GRANT SELECT, INSERT, UPDATE ON dbo.TB_WT_STATUS        TO [NT SERVICE\SQLSERVERAGENT];
+GRANT SELECT, INSERT, UPDATE ON dbo.TB_OVERTIME_SESSION TO [NT SERVICE\SQLSERVERAGENT];
+GRANT SELECT ON dbo.V_LINE_WT_A         TO [NT SERVICE\SQLSERVERAGENT];
+GRANT SELECT ON dbo.V_LINE_WT_B         TO [NT SERVICE\SQLSERVERAGENT];
+GRANT SELECT ON dbo.TB_SHIFT_DEFINITION TO [NT SERVICE\SQLSERVERAGENT];
+GRANT SELECT ON dbo.TB_BREAK_SLOT       TO [NT SERVICE\SQLSERVERAGENT];
+GO
+
+/* 7b. Initial TB_WT_STATUS rows (required by SP_WTG_DB on fresh DB) */
+IF NOT EXISTS (SELECT 1 FROM TB_WT_STATUS WHERE FDEV_NAME='WTG' AND FLINE='ADAPTIVE')
+BEGIN
+    INSERT INTO TB_WT_STATUS (FDEV_NAME,FLINE,FREG_NAME,FREG_VALUE,FTR_TIME) VALUES
+    ('WTG','ADAPTIVE','SHIFT',     '0', GETDATE()),
+    ('WTG','ADAPTIVE','LAST SHIFT','0', GETDATE()),
+    ('WTG','ADAPTIVE','INFO',      '0', GETDATE()),
+    ('WTG','ADAPTIVE','WT',        '0', GETDATE()),
+    ('WTG','ADAPTIVE','DATE SHIFT',CONVERT(VARCHAR(10),GETDATE(),126), GETDATE()),
+    ('WTG','ADAPTIVE','DATE',      CONVERT(VARCHAR(10),GETDATE(),126), GETDATE()),
+    ('WTG','ADAPTIVE','DATE NOW',  CONVERT(VARCHAR(10),GETDATE(),126), GETDATE());
+END
+GO
+
+PRINT '';
+PRINT '=== DB_TMMIN1_KRW_WTG_HV_BATTERY install complete ===';
+PRINT 'Verify : SELECT * FROM V_WORK_STATUS';
+PRINT 'Open OT: EXEC SP_WTG_OVERTIME_OPEN  @VLINE=''ADAPTIVE'', @REASON=''...''';
+PRINT 'Close OT: EXEC SP_WTG_OVERTIME_CLOSE @VLINE=''ADAPTIVE''';
+GO

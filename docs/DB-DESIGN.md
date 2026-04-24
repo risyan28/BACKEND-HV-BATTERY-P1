@@ -328,8 +328,10 @@ Planning produksi harian dari web app.
 TB_H_PROD_PLAN
   FID, PLAN_DATE, SHIFT, IS_LOCKED
     └── TB_H_PROD_PLAN_DETAIL
-          FID, FID_PLAN, MODEL_NAME, ORDER_TYPE, QTY_PLAN,
-          SEQ_GENERATED, SEQ_GENERATED_AT
+               FID, FID_PLAN, MODEL_NAME, ORDER_TYPE,
+               PROD_DATE, SHIFT,
+               QTY_PLAN, QTY_ACTUAL,
+               SEQ_GENERATED, SEQ_GENERATED_AT
 ```
 
 > `MODEL_NAME` di tabel ini menggunakan format mixed-case (`Li-688D`) — berbeda dari `FMODEL_BATTERY` uppercase (`LI-688D`). Join ke `TB_M_PROD_MODEL` menggunakan `UPPER()`.
@@ -463,6 +465,7 @@ TB_R_SEQUENCE_BATTERY (1 row per unit)
 | `TB_H_ANDON_STATUS_AFTER_UPDATE`     | `TB_H_ANDON_STATUS`       | AFTER UPDATE         | Akumulasi downtime ke H_DOWNTIME_LOG + R_DOWNTIME_LOG                                            |
 | `TB_R_ANDON_STATUS_AFTER_UPDATE`     | `TB_R_ANDON_STATUS`       | AFTER UPDATE         | FVALUE 0→1: start andon; 1→0: end andon ke H_ANDON_STATUS                                        |
 | `TB_R_PRINT_LABEL_AFTER_DELETE`      | `TB_R_PRINT_LABEL`        | AFTER DELETE         | (cek definisi — belum terdokumentasi)                                                            |
+| `TB_R_MAN_BRACKET_AFTER_INSERT`      | `TB_R_MAN_BRACKET`        | AFTER UPDATE         | FVALUE 0→1: increment ACT_ASSY/ACT_CKD di TB_R_ANDON_GLOBAL sesuai DESTINATION                   |
 
 ---
 

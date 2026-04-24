@@ -1,0 +1,103 @@
+-- Drop unused columns from TB_R_MAN_BRACKET and keep only:
+-- FID, BARCODE, DESTINATION, START_TIME, COMPLETED_TIME, FVALUE
+IF EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_MAN_BRACKET_SEQ_NO'
+      AND object_id = OBJECT_ID(N'[dbo].[TB_R_MAN_BRACKET]')
+)
+BEGIN
+    DROP INDEX IX_MAN_BRACKET_SEQ_NO ON [dbo].[TB_R_MAN_BRACKET]
+END
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_MAN_BRACKET_CREATED_AT'
+      AND object_id = OBJECT_ID(N'[dbo].[TB_R_MAN_BRACKET]')
+)
+BEGIN
+    DROP INDEX IX_MAN_BRACKET_CREATED_AT ON [dbo].[TB_R_MAN_BRACKET]
+END
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_MAN_BRACKET_START_TIME'
+      AND object_id = OBJECT_ID(N'[dbo].[TB_R_MAN_BRACKET]')
+)
+BEGIN
+    CREATE NONCLUSTERED INDEX IX_MAN_BRACKET_START_TIME ON [dbo].[TB_R_MAN_BRACKET]([START_TIME] DESC)
+END
+
+DECLARE @constraintName sysname
+
+SELECT @constraintName = dc.name
+FROM sys.default_constraints dc
+INNER JOIN sys.columns c
+    ON c.object_id = dc.parent_object_id
+   AND c.column_id = dc.parent_column_id
+WHERE dc.parent_object_id = OBJECT_ID(N'[dbo].[TB_R_MAN_BRACKET]')
+  AND c.name = 'PROCESS_STATUS'
+
+IF @constraintName IS NOT NULL
+BEGIN
+    EXEC('ALTER TABLE [dbo].[TB_R_MAN_BRACKET] DROP CONSTRAINT [' + @constraintName + ']')
+END
+
+SET @constraintName = NULL
+
+SELECT @constraintName = dc.name
+FROM sys.default_constraints dc
+INNER JOIN sys.columns c
+    ON c.object_id = dc.parent_object_id
+   AND c.column_id = dc.parent_column_id
+WHERE dc.parent_object_id = OBJECT_ID(N'[dbo].[TB_R_MAN_BRACKET]')
+  AND c.name = 'CREATED_AT'
+
+IF @constraintName IS NOT NULL
+BEGIN
+    EXEC('ALTER TABLE [dbo].[TB_R_MAN_BRACKET] DROP CONSTRAINT [' + @constraintName + ']')
+END
+
+IF COL_LENGTH('dbo.TB_R_MAN_BRACKET', 'SEQ_NO') IS NOT NULL
+BEGIN
+    ALTER TABLE [dbo].[TB_R_MAN_BRACKET] DROP COLUMN [SEQ_NO]
+END
+
+IF COL_LENGTH('dbo.TB_R_MAN_BRACKET', 'SEQ_TYPE') IS NOT NULL
+BEGIN
+    ALTER TABLE [dbo].[TB_R_MAN_BRACKET] DROP COLUMN [SEQ_TYPE]
+END
+
+IF COL_LENGTH('dbo.TB_R_MAN_BRACKET', 'ORDER_TYPE') IS NOT NULL
+BEGIN
+    ALTER TABLE [dbo].[TB_R_MAN_BRACKET] DROP COLUMN [ORDER_TYPE]
+END
+
+IF COL_LENGTH('dbo.TB_R_MAN_BRACKET', 'PROCESS_STATUS') IS NOT NULL
+BEGIN
+    ALTER TABLE [dbo].[TB_R_MAN_BRACKET] DROP COLUMN [PROCESS_STATUS]
+END
+
+IF COL_LENGTH('dbo.TB_R_MAN_BRACKET', 'CREATED_BY') IS NOT NULL
+BEGIN
+    ALTER TABLE [dbo].[TB_R_MAN_BRACKET] DROP COLUMN [CREATED_BY]
+END
+
+IF COL_LENGTH('dbo.TB_R_MAN_BRACKET', 'CREATED_AT') IS NOT NULL
+BEGIN
+    ALTER TABLE [dbo].[TB_R_MAN_BRACKET] DROP COLUMN [CREATED_AT]
+END
+
+IF COL_LENGTH('dbo.TB_R_MAN_BRACKET', 'UPDATED_AT') IS NOT NULL
+BEGIN
+    ALTER TABLE [dbo].[TB_R_MAN_BRACKET] DROP COLUMN [UPDATED_AT]
+END
+
+IF COL_LENGTH('dbo.TB_R_MAN_BRACKET', 'NOTES') IS NOT NULL
+BEGIN
+    ALTER TABLE [dbo].[TB_R_MAN_BRACKET] DROP COLUMN [NOTES]
+END
+
+PRINT 'TB_R_MAN_BRACKET cleaned up to only required columns.'

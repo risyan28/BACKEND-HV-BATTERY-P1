@@ -9,11 +9,11 @@ import { logger } from '@/utils/logger'
 export function requestLogger(req: Request, res: Response, next: NextFunction) {
   const startTime = Date.now()
 
-  // Log request
+  // Log request - use originalUrl to get full path with query string
   logger.info({
     msg: 'Incoming request',
     method: req.method,
-    path: req.path,
+    path: req.originalUrl,
     query: req.query,
     ip: req.ip || req.socket.remoteAddress,
   })
@@ -26,7 +26,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction) {
     logger[logLevel]({
       msg: 'Request completed',
       method: req.method,
-      path: req.path,
+      path: req.originalUrl,
       statusCode: res.statusCode,
       duration: `${duration}ms`,
     })

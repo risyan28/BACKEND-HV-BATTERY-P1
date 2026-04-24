@@ -35,8 +35,13 @@ export const generateSequenceBodySchema = z.object({
   orderType: z.string().min(1).max(50),
 })
 
+export const cycleTimeBodySchema = z.object({
+  cycleTime: z.coerce.number().int().min(0).max(86400),
+})
+
 export type PlanQuery = z.infer<typeof planQuerySchema>
 export type HistoryQuery = z.infer<typeof historyQuerySchema>
 export type SavePlanBody = z.infer<typeof savePlanBodySchema>
 export type GenerateSequenceParam = z.infer<typeof generateSequenceParamSchema>
 export type GenerateSequenceBody = z.infer<typeof generateSequenceBodySchema>
+export type CycleTimeBody = z.infer<typeof cycleTimeBodySchema>

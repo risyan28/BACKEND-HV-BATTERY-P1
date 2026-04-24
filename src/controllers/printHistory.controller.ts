@@ -27,12 +27,16 @@ export const printHistoryController = {
   async reprint(req: Request, res: Response) {
     try {
       const { id } = req.params
+      const productionDate =
+        typeof req.body?.productionDate === 'string'
+          ? req.body.productionDate
+          : undefined
 
       if (!id) {
         return res.status(400).json({ error: 'ID is required' })
       }
 
-      const result = await printHistoryService.reprint(id)
+      const result = await printHistoryService.reprint(id, productionDate)
       console.log(`👉 Re-print triggered for ID: ${id}`)
       res.json(result)
     } catch (err: any) {
