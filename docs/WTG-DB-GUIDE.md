@@ -191,7 +191,7 @@ OT_ID  LINENAME  OT_START              OT_END                OT_SECONDS  OT_DURA
 ## SQL Agent Job
 
 **Nama job:** `WTG_DB_BATTERY_TICKER`  
-**Schedule:** setiap 1 menit (loop 60x `WAITFOR DELAY '00:00:01'` di dalam step)
+**Schedule:** job berjalan terus di SQL Agent; step melakukan `SP_WTG_Tick` tiap 1 detik dan schedule hanya jadi fallback trigger.
 
 Cek status job:
 

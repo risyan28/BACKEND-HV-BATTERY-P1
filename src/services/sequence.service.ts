@@ -155,7 +155,13 @@ export const sequenceService = {
     QTY: number
   }) {
     const qty = Number.isFinite(data.QTY) ? Math.max(1, data.QTY) : 1
-    const orderTypeLabel = `INJECT MAN - ${data.ORDER_TYPE}`
+    const orderTypeWhereLabel =
+      data.ORDER_TYPE === 'ASSY'
+        ? 'ASSY'
+        : data.ORDER_TYPE === 'CKD'
+          ? 'CKD'
+          : 'SERVICE PART'
+    const orderTypeUpdateLabel = `INJECT MAN - ${orderTypeWhereLabel}`
 
     // Requirement: ONLY update FTARGET; sequence generation is handled by DB trigger
     // (TB_R_TARGET_PROD_AFTER_UPDATE) based on FTARGET delta.
@@ -163,11 +169,14 @@ export const sequenceService = {
       UPDATE TB_R_TARGET_PROD
       SET
         FTARGET = ISNULL(FTARGET, 0) + ${qty},
-        ORDER_TYPE = ${orderTypeLabel},
+        ORDER_TYPE = ${orderTypeUpdateLabel},
         FPROD_DATE = CAST(GETDATE() AS DATE),
         FDATETIME_MODIFIED = GETDATE()
       WHERE FTYPE_BATTERY = ${data.FTYPE_BATTERY}
         AND FMODEL_BATTERY = ${data.FMODEL_BATTERY}
+        AND UPPER(LTRIM(RTRIM(ISNULL(ORDER_TYPE, '')))) LIKE '%'
+          + UPPER(${orderTypeWhereLabel})
+          + '%'
     `
 
     const updatedCount = Number(updated)

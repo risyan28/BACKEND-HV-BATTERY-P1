@@ -8,6 +8,9 @@ const TRANSMIT_REG_NAME = 'INTERLOCK'
 const TRANSMIT_ID = 10
 
 const WTG_LINENAME = process.env.WTG_LINENAME || 'ADAPTIVE'
+const VALID_DESTINATIONS = ['ASSY', 'CKD', 'SERVICE PART'] as const
+
+type DestinationValue = (typeof VALID_DESTINATIONS)[number]
 
 const extractPackPartBattery = (barcode: string): string | null => {
   const normalized = String(barcode ?? '')
@@ -16,6 +19,70 @@ const extractPackPartBattery = (barcode: string): string | null => {
   // Example: "---PE--F70401DG4H0000002" -> "F7040"
   const match = normalized.match(/[A-Z]\d{4}/)
   return match?.[0] ?? null
+}
+
+const normalizeDestination = (value: unknown): DestinationValue | null => {
+  const normalized = String(value ?? '')
+    .trim()
+    .toUpperCase()
+
+  return VALID_DESTINATIONS.includes(normalized as DestinationValue)
+    ? (normalized as DestinationValue)
+    : null
+}
+
+const getCurrentShiftContext = async (): Promise<{
+  shiftDate: Date | null
+  shiftLabel: string | null
+}> => {
+  const shiftRows = await prisma.$queryRaw<
+    { REG_NAME: string; REG_VALUE: string | null }[]
+  >`
+    SELECT REG_NAME, REG_VALUE
+    FROM [DB_TMMIN1_KRW_WTG_HV_BATTERY].[dbo].[TB_WTG_REG]
+    WHERE LINENAME = ${WTG_LINENAME}
+      AND REG_NAME IN ('SHIFT_LABEL', 'SHIFT_DATE')
+  `
+
+  const regByName = new Map(
+    (shiftRows ?? []).map((row) => [
+      String(row.REG_NAME),
+      row.REG_VALUE ?? null,
+    ]),
+  )
+
+  const shiftDateStr = regByName.get('SHIFT_DATE') ?? null
+  const shiftLabel = regByName.get('SHIFT_LABEL') ?? null
+
+  return {
+    shiftDate: shiftDateStr ? toDbDateOnly(shiftDateStr) : null,
+    shiftLabel,
+  }
+}
+
+const getConfiguredDestination = async (): Promise<DestinationValue | null> => {
+  const config = await prisma.tB_R_MAN_BRACKET_INTERLOCK.findUnique({
+    where: { FID: 1 },
+  })
+
+  return normalizeDestination(config?.DESTINATION)
+}
+
+const resolveDestinationFromBarcode = async (
+  barcode: string,
+  fallbackDestination: string,
+): Promise<DestinationValue> => {
+  const packPartBattery = extractPackPartBattery(barcode)
+
+  if (packPartBattery === 'F7030') {
+    return 'SERVICE PART'
+  }
+
+  if (packPartBattery === 'F7040') {
+    return normalizeDestination(fallbackDestination) ?? 'CKD'
+  }
+
+  return normalizeDestination(fallbackDestination) ?? 'CKD'
 }
 
 const toDbDateOnly = (input?: string | Date | null): Date => {
@@ -66,19 +133,14 @@ export const manBracketService = {
     const packPartBattery = extractPackPartBattery(barcodeTrimmed)
     const startTimeDb = toJakartaDbDate(startTime)
 
-    const [printLogRows, wtgRegRows, modelRows] = await Promise.all([
+    const [printLogRows, shiftContext, modelRows] = await Promise.all([
       prisma.$queryRaw<{ PROD_DATE: Date | null }[]>`
         SELECT TOP 1 PROD_DATE
         FROM dbo.TB_H_PRINT_LOG
         WHERE UPPER(LTRIM(RTRIM(ISNULL(PRINT_QRCODE, '')))) = UPPER(LTRIM(RTRIM(${barcodeTrimmed})))
         ORDER BY DATETIME_MODIFIED DESC, FID DESC
       `,
-      prisma.$queryRaw<{ REG_NAME: string; REG_VALUE: string | null }[]>`
-        SELECT REG_NAME, REG_VALUE
-        FROM [DB_TMMIN1_KRW_WTG_HV_BATTERY].[dbo].[TB_WTG_REG]
-        WHERE LINENAME = ${WTG_LINENAME}
-          AND REG_NAME IN ('SHIFT_LABEL', 'SHIFT_DATE')
-      `,
+      getCurrentShiftContext(),
       packPartBattery
         ? prisma.$queryRaw<{ FMODEL_BATTERY: string | null }[]>`
             SELECT TOP 1 m.FMODEL_BATTERY
@@ -91,16 +153,15 @@ export const manBracketService = {
         : Promise.resolve([]),
     ])
 
-    const regByName = new Map(
-      (wtgRegRows ?? []).map((r) => [String(r.REG_NAME), r.REG_VALUE ?? null]),
-    )
-    const shiftLabel = regByName.get('SHIFT_LABEL') ?? null
-    const shiftDateStr = regByName.get('SHIFT_DATE') ?? null
     const modelBattery = modelRows?.[0]?.FMODEL_BATTERY ?? null
+    const resolvedDestination = await resolveDestinationFromBarcode(
+      barcodeTrimmed,
+      destination,
+    )
 
     // PROD_DATE must follow WTG logical shift date (SHIFT_DATE).
     // Fallbacks are kept to avoid NULL when WTG ticker/reg is unavailable.
-    const prodDateFromShift = shiftDateStr ? toDbDateOnly(shiftDateStr) : null
+    const prodDateFromShift = shiftContext.shiftDate
     const prodDateFromPrintLog = printLogRows?.[0]?.PROD_DATE
       ? toDbDateOnly(printLogRows[0].PROD_DATE)
       : null
@@ -110,10 +171,10 @@ export const manBracketService = {
     return prisma.tB_R_MAN_BRACKET.create({
       data: {
         BARCODE: barcodeTrimmed,
-        DESTINATION: destination,
+        DESTINATION: resolvedDestination,
         FMODEL_BATTERY: modelBattery,
         PROD_DATE: prodDate,
-        SHIFT: shiftLabel,
+        SHIFT: shiftContext.shiftLabel,
         START_TIME: startTimeDb,
         COMPLETED_TIME: null,
         FVALUE: 0,
@@ -152,9 +213,21 @@ export const manBracketService = {
     destination?: string,
     fvalue?: number,
   ) => {
-    const whereClause: any = {}
+    const whereClause: Record<string, unknown> = {}
     if (destination) whereClause.DESTINATION = destination
     if (fvalue !== undefined) whereClause.FVALUE = Number(fvalue)
+
+    if (Number(fvalue) === 1) {
+      const shiftContext = await getCurrentShiftContext()
+
+      if (shiftContext.shiftDate) {
+        whereClause.PROD_DATE = shiftContext.shiftDate
+      }
+
+      if (shiftContext.shiftLabel) {
+        whereClause.SHIFT = shiftContext.shiftLabel
+      }
+    }
 
     const parsedFvalue = fvalue !== undefined ? Number(fvalue) : undefined
     const orderByClause =
@@ -219,11 +292,7 @@ export const manBracketService = {
    * Get Active Destination Config (for AUTO mode)
    */
   getDestinationConfig: async () => {
-    const config = await prisma.tB_R_MAN_BRACKET_INTERLOCK.findUnique({
-      where: { FID: 1 },
-    })
-
-    return config?.DESTINATION ?? 'ASSY'
+    return (await getConfiguredDestination()) ?? 'ASSY'
   },
 
   /**
