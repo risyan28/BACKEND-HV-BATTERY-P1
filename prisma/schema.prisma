@@ -702,3 +702,15 @@ model TB_R_MAN_BRACKET {
   @@index([BARCODE], map: "IX_MAN_BRACKET_BARCODE")
   @@index([START_TIME(sort: Desc)], map: "IX_MAN_BRACKET_START_TIME")
 }
+
+model TB_M_STATION_CONFIG {
+  FID                Int       @id(map: "PK_TB_M_STATION_CONFIG") @default(autoincrement())
+  STATION_NAME       String    @db.NVarChar(100)
+  DISPLAY_NAME       String    @db.NVarChar(100)
+  STATION_ID_SUFFIX  String?   @db.VarChar(10)
+  IS_MANDATORY       Int       @default(0)
+  SORT_ORDER         Int       @default(0)
+  IS_ACTIVE          Int       @default(1)
+  CREATED_AT         DateTime  @default(now())
+  UPDATED_AT         DateTime? @db.DateTime
+}

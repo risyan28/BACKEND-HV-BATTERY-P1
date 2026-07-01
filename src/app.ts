@@ -7,6 +7,7 @@ import { traceabilityRouter } from '@/routes/traceability.routes'
 import { logsRouter } from '@/routes/logs.routes'
 import { productionPlanRouter } from '@/routes/productionPlan.routes'
 import { manBracketRouter } from '@/routes/manBracket.routes'
+import { stationConfigRouter } from '@/routes/stationConfig.routes'
 import { errorHandler } from '@/middleware/errorHandler'
 import { requestLogger } from '@/middleware/requestLogger'
 import { apiLimiter } from '@/middleware/rateLimiter'
@@ -43,6 +44,7 @@ app.use('/api/print-history', apiLimiter, printHistoryRouter)
 app.use('/api/traceability', apiLimiter, traceabilityRouter)
 app.use('/api/production-plan', apiLimiter, productionPlanRouter)
 app.use('/api/man-bracket', apiLimiter, manBracketRouter)
+app.use('/api/station-config', apiLimiter, stationConfigRouter)
 app.use('/api/logs', logsRouter) // No rate limit for FE logs
 
 // ✅ Centralized error handler (Sentry v10 automatically handles errors before this)
