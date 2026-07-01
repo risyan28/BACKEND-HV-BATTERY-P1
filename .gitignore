@@ -46,6 +46,7 @@ Thumbs.db
 # Editor config
 .vscode/
 .idea/
+.omo/
 
 # Build artifacts
 *.tar.gz
