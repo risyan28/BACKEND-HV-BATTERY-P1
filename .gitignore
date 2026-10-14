@@ -7,6 +7,7 @@ build/
 
 # Runtime bundle (di-generate oleh build-backend-bundle.js, tidak perlu commit)
 backend-runtime/
+Deployment/
 backend-runtime.zip
 
 # Prisma — generated client (di-generate ulang via prisma generate)
@@ -51,3 +52,4 @@ Thumbs.db
 # Build artifacts
 *.tar.gz
 *.tgz
+*.7z
