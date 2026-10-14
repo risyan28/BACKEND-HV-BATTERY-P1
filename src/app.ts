@@ -8,6 +8,7 @@ import { logsRouter } from '@/routes/logs.routes'
 import { productionPlanRouter } from '@/routes/productionPlan.routes'
 import { manBracketRouter } from '@/routes/manBracket.routes'
 import { stationConfigRouter } from '@/routes/stationConfig.routes'
+import { rfidRouter } from '@/routes/rfid.routes'
 import { errorHandler } from '@/middleware/errorHandler'
 import { requestLogger } from '@/middleware/requestLogger'
 import { apiLimiter } from '@/middleware/rateLimiter'
@@ -46,6 +47,7 @@ app.use('/api/production-plan', apiLimiter, productionPlanRouter)
 app.use('/api/man-bracket', apiLimiter, manBracketRouter)
 app.use('/api/station-config', apiLimiter, stationConfigRouter)
 app.use('/api/logs', logsRouter) // No rate limit for FE logs
+app.use('/api/rfid', apiLimiter, rfidRouter)
 
 // ✅ Centralized error handler (Sentry v10 automatically handles errors before this)
 app.use(errorHandler)

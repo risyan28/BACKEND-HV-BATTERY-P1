@@ -104,6 +104,14 @@ model TB_R_MAN_BRACKET_INTERLOCK {
   FUPDATE     DateTime? @default(now()) @db.DateTime
 }
 
+model TB_R_SCAN_MAN_BRACKET {
+  FID        Int       @id @default(autoincrement())
+  BARCODE    String?   @db.VarChar(100)
+  FLAG       Int?      @default(0)
+  CREATED_AT DateTime? @default(now()) @db.DateTime
+  UPDATED_AT DateTime? @default(now()) @db.DateTime
+}
+
 model TB_R_ANDON_GLOBAL {
   FID     Int       @id(map: "PK__TB_R_AND__C1BEA5A21F30975C") @default(autoincrement())
   FNAME   String?   @db.VarChar(50)
@@ -701,4 +709,30 @@ model TB_R_MAN_BRACKET {
 
   @@index([BARCODE], map: "IX_MAN_BRACKET_BARCODE")
   @@index([START_TIME(sort: Desc)], map: "IX_MAN_BRACKET_START_TIME")
+}
+
+model TB_M_SEQUENCE_STRATEGY {
+  FID             Int      @id(map: "PK_TB_M_SEQUENCE_STRATEGY") @default(1)
+  MODE            String   @db.NVarChar(20)
+  PRIORITY_TYPE   String?  @db.NVarChar(50)
+  RATIO_PRIMARY   String?  @db.NVarChar(50)
+  RATIO_SECONDARY String?  @db.NVarChar(50)
+  RATIO_TERTIARY  String?  @db.NVarChar(50)
+  RATIO_ASSY      Int      @default(2)
+  RATIO_CKD       Int      @default(1)
+  RATIO_SERVICE_PART Int   @default(1)
+  UPDATED_AT      DateTime @default(now()) @db.DateTime
+  UPDATED_BY      String?  @db.NVarChar(50)
+}
+
+model TB_M_STATION_CONFIG {
+  FID                Int       @id(map: "PK_TB_M_STATION_CONFIG") @default(autoincrement())
+  STATION_NAME       String    @db.NVarChar(100)
+  DISPLAY_NAME       String    @db.NVarChar(100)
+  STATION_ID_SUFFIX  String?   @db.VarChar(10)
+  IS_MANDATORY       Int       @default(0)
+  SORT_ORDER         Int       @default(0)
+  IS_ACTIVE          Int       @default(1)
+  CREATED_AT         DateTime  @default(now())
+  UPDATED_AT         DateTime? @db.DateTime
 }

@@ -20,6 +20,7 @@ import { initializeSentry } from './config/sentry'
 import { createRedisClient, disconnectRedis } from './config/redis'
 import { SERVER } from './config/constants'
 import { loggers } from './utils/logger'
+import { strategyStore } from './utils/strategyStore'
 
 const PORT = Number(process.env.PORT) || SERVER.DEFAULT_PORT
 const httpServer = createServer(app)
@@ -38,6 +39,10 @@ setupWebSocket(httpServer)
   try {
     await getConnection()
     loggers.db.info('Database connection established')
+
+    // Load persisted sequence strategy (survives restarts).
+    await strategyStore.init()
+    loggers.db.info('Sequence strategy loaded')
   } catch (err: any) {
     const errorMsg = err.code || err.message || 'Unknown error'
     loggers.db.fatal(

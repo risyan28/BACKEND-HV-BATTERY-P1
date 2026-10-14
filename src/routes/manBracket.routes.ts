@@ -248,6 +248,8 @@ router.get('/stats', manBracketController.getStats)
 router.get('/destination-config', manBracketController.getDestinationConfig)
 router.put('/destination-config', manBracketController.setDestinationConfig)
 
+router.get('/stock', manBracketController.getStock)
+
 /**
  * @swagger
  * /api/man-bracket/interlock-mode:
@@ -273,6 +275,33 @@ router.put('/destination-config', manBracketController.setDestinationConfig)
  *         description: Invalid payload
  */
 router.post('/interlock-mode', manBracketController.setInterlockMode)
+
+/**
+ * @swagger
+ * /api/man-bracket/update-scan:
+ *   post:
+ *     summary: Update Scan Result from middleware serial scanner
+ *     description: Middleware writes scanned barcode to TB_R_SCAN_MAN_BRACKET buffer. Backend emits WS event to FE.
+ *     tags: [Man Bracket]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - barcode
+ *             properties:
+ *               barcode:
+ *                 type: string
+ *                 example: "F70401DG4H0000002"
+ *     responses:
+ *       200:
+ *         description: Scan result updated successfully
+ *       400:
+ *         description: Barcode required
+ */
+router.post('/update-scan', manBracketController.updateScan)
 
 router.get('/:id', manBracketController.getRecord)
 

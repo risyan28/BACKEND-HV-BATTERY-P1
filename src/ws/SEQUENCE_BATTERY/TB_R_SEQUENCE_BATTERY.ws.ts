@@ -63,7 +63,7 @@ export const sequencePolling = createCTPolling({
     const currentFID = current?.FID ?? -1
     const queueRes = await pool.request().input('currentFID', currentFID)
       .query(`
-        SELECT TOP 500
+        SELECT
           s.*,
           COALESCE(
             NULLIF(LTRIM(RTRIM(s.ORDER_TYPE)), ''),

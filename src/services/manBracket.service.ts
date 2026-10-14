@@ -122,6 +122,21 @@ export const manBracketService = {
   },
 
   /**
+   * Update scan result buffer with barcode from middleware serial scanner
+   */
+  updateScanResult: async (barcode: string) => {
+    const normalizedBarcode = String(barcode ?? '').trim().toUpperCase()
+    return prisma.tB_R_SCAN_MAN_BRACKET.update({
+      where: { FID: 1 },
+      data: {
+        BARCODE: normalizedBarcode,
+        FLAG: 0,
+        UPDATED_AT: new Date(),
+      },
+    })
+  },
+
+  /**
    * Start Man Bracket Process
    */
   startProcess: async (
@@ -168,7 +183,7 @@ export const manBracketService = {
     const prodDate =
       prodDateFromShift ?? prodDateFromPrintLog ?? toDbDateOnly(startTimeDb)
 
-    return prisma.tB_R_MAN_BRACKET.create({
+    const newRecord = await prisma.tB_R_MAN_BRACKET.create({
       data: {
         BARCODE: barcodeTrimmed,
         DESTINATION: resolvedDestination,
@@ -180,6 +195,16 @@ export const manBracketService = {
         FVALUE: 0,
       },
     })
+
+    // Atomic: consume scan buffer after process started successfully
+    await prisma.tB_R_SCAN_MAN_BRACKET.updateMany({
+      where: { FLAG: 0, BARCODE: barcodeTrimmed },
+      data: { FLAG: 1, UPDATED_AT: new Date() },
+    }).catch((e) => {
+      console.warn('Scan buffer consume failed (non-fatal):', e)
+    })
+
+    return newRecord
   },
 
   /**
@@ -208,7 +233,6 @@ export const manBracketService = {
    * Get Man Bracket Records
    */
   getRecords: async (
-    limit: number = 50,
     offset: number = 0,
     destination?: string,
     fvalue?: number,
@@ -238,15 +262,26 @@ export const manBracketService = {
     const records = await prisma.tB_R_MAN_BRACKET.findMany({
       where: whereClause,
       orderBy: orderByClause,
-      take: Math.min(Number(limit), 100),
       skip: Number(offset),
     })
 
-    const total = await prisma.tB_R_MAN_BRACKET.count({
+    // One grouped query replaces count(): gives both the total and the
+    // per-destination breakdown the dashboard RESUME panel needs, so the list
+    // can stay capped while the counters are never capped.
+    const grouped = await prisma.tB_R_MAN_BRACKET.groupBy({
+      by: ['DESTINATION'],
       where: whereClause,
+      _count: { FID: true },
     })
 
-    return { records, total }
+    return {
+      records,
+      total: grouped.reduce((sum, group) => sum + group._count.FID, 0),
+      countsByDestination: grouped.map((group) => ({
+        destination: group.DESTINATION,
+        count: group._count.FID,
+      })),
+    }
   },
 
   /**
@@ -293,6 +328,21 @@ export const manBracketService = {
    */
   getDestinationConfig: async () => {
     return (await getConfiguredDestination()) ?? 'ASSY'
+  },
+
+  /**
+   * Get STD STOCK & BUFFER STOCK from TB_R_ANDON_GLOBAL
+   */
+  getStock: async () => {
+    const rows = await prisma.tB_R_ANDON_GLOBAL.findMany({
+      where: { FNAME: { in: ['STD STOCK', 'BUFFER STOCK'] } },
+      select: { FNAME: true, FVALUE: true },
+    })
+
+    return {
+      stdStock: rows.find((row) => row.FNAME === 'STD STOCK')?.FVALUE ?? 0,
+      bufferStock: rows.find((row) => row.FNAME === 'BUFFER STOCK')?.FVALUE ?? 0,
+    }
   },
 
   /**

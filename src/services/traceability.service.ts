@@ -26,6 +26,27 @@ const normalizeDateOnly = (value: any): string => {
   return String(value).substring(0, 10)
 }
 
+const bufferToImageDataUrl = (buf: any): string | null => {
+  if (buf == null) return null
+  if (!Buffer.isBuffer(buf) && !(buf instanceof Uint8Array)) return null
+  const b = Buffer.from(buf)
+  if (b.length === 0) return null
+  const jpegMagic = [0xff, 0xd8, 0xff]
+  const pngMagic = [0x89, 0x50, 0x4e, 0x47]
+  let magicLen = 0
+  let mime = ''
+  if (b.length >= 3) {
+    const ok = b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff
+    if (ok) { magicLen = 3; mime = 'jpeg' }
+  }
+  if (b.length >= 4 && magicLen === 0) {
+    const ok = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47
+    if (ok) { magicLen = 4; mime = 'png' }
+  }
+  if (magicLen === 0) return null
+  return `data:image/${mime};base64,${b.toString('base64')}`
+}
+
 export const traceabilityService = {
   /**
    * ✅ PHASE 3: Redis cache implemented + Pagination
@@ -97,6 +118,9 @@ export const traceabilityService = {
               }
             })
 
+            formatted.CAM_IMG1 = bufferToImageDataUrl(formatted.CAM_IMG1)
+            formatted.CAM_IMG2 = bufferToImageDataUrl(formatted.CAM_IMG2)
+
             return formatted
           })
         } catch (error: any) {
@@ -154,6 +178,9 @@ export const traceabilityService = {
                     formatted[col] = normalizeDateOnly(formatted[col])
                   }
                 })
+
+                formatted.CAM_IMG1 = bufferToImageDataUrl(formatted.CAM_IMG1)
+                formatted.CAM_IMG2 = bufferToImageDataUrl(formatted.CAM_IMG2)
 
                 return formatted
               })

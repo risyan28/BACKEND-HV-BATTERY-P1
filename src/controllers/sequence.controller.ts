@@ -22,11 +22,17 @@ export const sequenceController = {
     res.json(data)
   }),
 
-  // ✅ Create sequence with validation
+  // ✅ Create sequence with validation and apply active strategy
   createSequence: asyncHandler(async (req: Request, res: Response) => {
     const validatedData = createSequenceSchema.parse(req.body)
-    const data = await sequenceService.createSequence(validatedData)
-    res.json(data)
+    await sequenceService.createSequence(validatedData)
+
+    const currentStrategy = strategyStore.get()
+    await sequenceService.applyStrategyToDb(currentStrategy)
+
+    const freshData = await sequenceService.getSequences({ fresh: true })
+    await broadcastSnapshot('sequences')
+    res.json(freshData)
   }),
 
   // ✅ Update sequence with validation
@@ -97,7 +103,7 @@ export const sequenceController = {
     }
 
     const validated = strategySchema.parse(merged)
-    const updated = strategyStore.set(validated)
+    const updated = await strategyStore.set(validated)
 
     // Apply strategy physically in DB so queue order is DB-driven
     await sequenceService.applyStrategyToDb(updated)

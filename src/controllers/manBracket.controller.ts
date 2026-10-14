@@ -3,6 +3,7 @@
 import { Request, Response } from 'express'
 import prisma from '@/prisma'
 import { manBracketService } from '@/services/manBracket.service'
+import { getIO } from '@/ws/connectionHandler'
 
 export const manBracketController = {
   /**
@@ -138,10 +139,9 @@ export const manBracketController = {
    */
   async getRecords(req: Request, res: Response) {
     try {
-      const { limit = 50, offset = 0, destination, fvalue } = req.query
+      const { offset = 0, destination, fvalue } = req.query
 
-      const { records, total } = await manBracketService.getRecords(
-        Number(limit),
+      const { records, total, countsByDestination } = await manBracketService.getRecords(
         Number(offset),
         destination as string | undefined,
         fvalue !== undefined ? Number(fvalue) : undefined,
@@ -152,9 +152,9 @@ export const manBracketController = {
         data: records,
         pagination: {
           total,
-          limit: Number(limit),
           offset: Number(offset),
         },
+        countsByDestination,
       })
     } catch (error: any) {
       console.error('Error fetching man bracket records:', error)
@@ -239,6 +239,19 @@ export const manBracketController = {
   },
 
   /**
+   * Get Stock (STD STOCK / BUFFER STOCK)
+   * GET /api/man-bracket/stock
+   */
+  async getStock(req: Request, res: Response) {
+    try {
+      const stock = await manBracketService.getStock()
+      res.json({ success: true, data: stock })
+    } catch {
+      res.json({ success: true, data: { stdStock: 0, bufferStock: 0 } })
+    }
+  },
+
+  /**
    * Set Password for specific FID
    * PUT /api/man-bracket/destination-config
    * Body: { fid: number, password: string }
@@ -265,6 +278,51 @@ export const manBracketController = {
       res.json({ success: true, ...result })
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message })
+    }
+  },
+
+  /**
+   * Update Scan Result from middleware serial scanner
+   * POST /api/man-bracket/update-scan
+   */
+  async updateScan(req: Request, res: Response) {
+    try {
+      const { barcode } = req.body
+
+      if (!barcode || !String(barcode).trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Barcode is required',
+        })
+      }
+
+      const result = await manBracketService.updateScanResult(
+        String(barcode).trim().toUpperCase(),
+      )
+
+      // Emit WS event to connected FE clients
+      try {
+        const io = getIO()
+        io.to('man-bracket').emit('man-bracket:serial-scan', {
+          barcode: String(barcode).trim().toUpperCase(),
+        })
+      } catch (wsError) {
+        // Non-fatal: WS emit is best-effort
+        console.warn('WS emit failed (non-fatal):', wsError)
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Scan result updated successfully',
+        data: result,
+      })
+    } catch (error: any) {
+      console.error('Error updating scan result:', error)
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update scan result',
+        error: error.message,
+      })
     }
   },
 
